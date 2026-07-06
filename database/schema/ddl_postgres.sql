@@ -37,12 +37,14 @@ CREATE TABLE food_items (
 
 CREATE TABLE nutrition_logs (
     log_id          BIGSERIAL PRIMARY KEY,
-    user_id         INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    food_item_id    INTEGER NOT NULL REFERENCES food_items(food_item_id) ON DELETE RESTRICT,
+    user_id         INTEGER NOT NULL,
+    food_item_id    INTEGER NOT NULL,
     quantity_g      NUMERIC(6,2) NOT NULL CHECK (quantity_g > 0),
     meal_type       VARCHAR(20) NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
     logged_at       TIMESTAMPTZ NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_nutrition_logs_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_nutrition_logs_food_item FOREIGN KEY (food_item_id) REFERENCES food_items(food_item_id) ON DELETE RESTRICT
 );
 
 CREATE TABLE exercises (
@@ -61,29 +63,32 @@ CREATE TABLE exercises (
 
 CREATE TABLE workout_sessions (
     session_id      BIGSERIAL PRIMARY KEY,
-    user_id         INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL,
     started_at      TIMESTAMPTZ NOT NULL,
     ended_at        TIMESTAMPTZ,
     notes           TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (ended_at IS NULL OR ended_at >= started_at)
+    CHECK (ended_at IS NULL OR ended_at >= started_at),
+    CONSTRAINT fk_workout_sessions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE workout_sets (
     set_id           BIGSERIAL PRIMARY KEY,
-    session_id       BIGINT NOT NULL REFERENCES workout_sessions(session_id) ON DELETE CASCADE,
-    exercise_id      INTEGER NOT NULL REFERENCES exercises(exercise_id) ON DELETE RESTRICT,
+    session_id       BIGINT NOT NULL,
+    exercise_id      INTEGER NOT NULL,
     set_number       SMALLINT NOT NULL CHECK (set_number > 0),
     reps             SMALLINT CHECK (reps >= 0),
     weight_kg        NUMERIC(6,2) CHECK (weight_kg >= 0),
     duration_seconds INTEGER CHECK (duration_seconds >= 0),
     distance_m       NUMERIC(8,2) CHECK (distance_m >= 0),
-    UNIQUE (session_id, exercise_id, set_number)
+    UNIQUE (session_id, exercise_id, set_number),
+    CONSTRAINT fk_workout_sets_session FOREIGN KEY (session_id) REFERENCES workout_sessions(session_id) ON DELETE CASCADE,
+    CONSTRAINT fk_workout_sets_exercise FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id) ON DELETE RESTRICT
 );
 
 CREATE TABLE biometric_measurements (
     measurement_id      BIGSERIAL PRIMARY KEY,
-    user_id             INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id             INTEGER NOT NULL,
     measured_at         TIMESTAMPTZ NOT NULL,
     weight_kg           NUMERIC(5,2) CHECK (weight_kg > 0),
     height_cm           NUMERIC(5,2) CHECK (height_cm > 0),
@@ -92,7 +97,8 @@ CREATE TABLE biometric_measurements (
     resting_heart_rate  SMALLINT CHECK (resting_heart_rate > 0),
     source              VARCHAR(50) NOT NULL DEFAULT 'manual',
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id, measured_at)
+    UNIQUE (user_id, measured_at),
+    CONSTRAINT fk_biometric_measurements_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE data_quality_log (
@@ -106,7 +112,8 @@ CREATE TABLE data_quality_log (
     detected_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     resolved          BOOLEAN NOT NULL DEFAULT FALSE,
     resolved_at       TIMESTAMPTZ,
-    resolved_by       INTEGER REFERENCES users(user_id) ON DELETE SET NULL
+    resolved_by       INTEGER,
+    CONSTRAINT fk_data_quality_log_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- Index utiles pour les requêtes fréquentes (filtrage/tri par utilisateur + temps)
