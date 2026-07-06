@@ -9,8 +9,11 @@ database/seed/README.md pour le mapping colonnes -> tables et les
 hypothèses prises) :
 - daily_food_nutrition_sample.csv    -> food_items
 - diet_recommendations_sample.csv    -> users + biometric_measurements
+                                         + medical_profiles + dietary_preferences
+                                         + fitness_profiles + diet_recommendations
 - gym_members_exercise_sample.csv    -> users + biometric_measurements
                                          + exercises + workout_sessions
+                                         + fitness_profiles
 
 Usage :
     DATABASE_URL=postgresql://user:pass@host:5432/db python seed_data.py
@@ -62,9 +65,10 @@ def truncate_all(cur):
     cur.execute(
         """
         TRUNCATE TABLE
-            data_quality_log, workout_sets, workout_sessions,
-            biometric_measurements, nutrition_logs, exercises,
-            food_items, users
+            data_quality_log, diet_recommendations, fitness_profiles,
+            dietary_preferences, medical_profiles, workout_sets,
+            workout_sessions, biometric_measurements, nutrition_logs,
+            exercises, food_items, users
         RESTART IDENTITY CASCADE
         """
     )
@@ -153,7 +157,58 @@ def seed_diet_recommendations_users(cur):
             """,
             (user_id, now, to_float(row["Weight_kg"]), to_float(row["Height_cm"]), "kaggle_diet_recommendations"),
         )
-    print(f"users (diet_recommendations) : {len(user_ids)} lignes")
+
+        cur.execute(
+            """
+            INSERT INTO medical_profiles
+                (user_id, disease_type, severity, cholesterol_mg_dl, blood_pressure_mmhg, glucose_mg_dl, recorded_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                row["Disease_Type"],
+                row["Severity"],
+                to_float(row["Cholesterol_mg/dL"]),
+                to_float(row["Blood_Pressure_mmHg"]),
+                to_float(row["Glucose_mg/dL"]),
+                now,
+            ),
+        )
+
+        cur.execute(
+            """
+            INSERT INTO dietary_preferences (user_id, dietary_restrictions, allergies, preferred_cuisine, recorded_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (user_id, row["Dietary_Restrictions"], row["Allergies"], row["Preferred_Cuisine"], now),
+        )
+
+        cur.execute(
+            """
+            INSERT INTO fitness_profiles
+                (user_id, physical_activity_level, weekly_exercise_hours, recorded_at)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (user_id, row["Physical_Activity_Level"], to_float(row["Weekly_Exercise_Hours"]), now),
+        )
+
+        cur.execute(
+            """
+            INSERT INTO diet_recommendations
+                (user_id, daily_caloric_intake_kcal, adherence_to_diet_plan_pct,
+                 dietary_nutrient_imbalance_score, recommendation, recommended_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                to_float(row["Daily_Caloric_Intake"]),
+                to_float(row["Adherence_to_Diet_Plan"]),
+                to_float(row["Dietary_Nutrient_Imbalance_Score"]),
+                row["Diet_Recommendation"],
+                now,
+            ),
+        )
+    print(f"users (diet_recommendations) + medical/dietary/fitness/diet_recommendations : {len(user_ids)} lignes")
     return user_ids
 
 
@@ -204,16 +259,17 @@ def seed_gym_members_users_and_sessions(cur, gym_rows, exercise_ids):
         ended_at = started_at + timedelta(hours=duration_hours)
         cur.execute(
             """
-            INSERT INTO workout_sessions (user_id, started_at, ended_at, notes)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO workout_sessions (user_id, started_at, ended_at, max_bpm, avg_bpm, notes)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING session_id
             """,
             (
                 user_id,
                 started_at,
                 ended_at,
-                f"Workout_Type={row['Workout_Type']}; Calories_Burned={row['Calories_Burned']}; "
-                f"Experience_Level={row['Experience_Level']}",
+                int(float(row["Max_BPM"])) if row["Max_BPM"] else None,
+                int(float(row["Avg_BPM"])) if row["Avg_BPM"] else None,
+                f"Workout_Type={row['Workout_Type']}; Calories_Burned={row['Calories_Burned']}",
             ),
         )
         session_id = cur.fetchone()[0]
@@ -225,7 +281,21 @@ def seed_gym_members_users_and_sessions(cur, gym_rows, exercise_ids):
             """,
             (session_id, exercise_ids[row["Workout_Type"]], 1, int(duration_hours * 3600)),
         )
-    print(f"users (gym_members) + workout_sessions/sets : {len(user_ids)} lignes")
+
+        cur.execute(
+            """
+            INSERT INTO fitness_profiles
+                (user_id, workout_frequency_days_per_week, experience_level, recorded_at)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                int(float(row["Workout_Frequency (days/week)"])) if row["Workout_Frequency (days/week)"] else None,
+                row["Experience_Level"],
+                now,
+            ),
+        )
+    print(f"users (gym_members) + workout_sessions/sets + fitness_profiles : {len(user_ids)} lignes")
     return user_ids
 
 

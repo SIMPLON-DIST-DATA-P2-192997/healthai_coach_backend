@@ -67,6 +67,8 @@ CREATE TABLE workout_sessions (
     user_id         INTEGER NOT NULL,
     started_at      TIMESTAMPTZ NOT NULL,
     ended_at        TIMESTAMPTZ,
+    max_bpm         SMALLINT CHECK (max_bpm > 0),
+    avg_bpm         SMALLINT CHECK (avg_bpm > 0),
     notes           TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (ended_at IS NULL OR ended_at >= started_at),
@@ -102,6 +104,57 @@ CREATE TABLE biometric_measurements (
     CONSTRAINT fk_biometric_measurements_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
+-- Historique clinique (1 utilisateur -> N relevés dans le temps, même
+-- pattern que biometric_measurements)
+CREATE TABLE medical_profiles (
+    medical_profile_id  BIGSERIAL PRIMARY KEY,
+    user_id             INTEGER NOT NULL,
+    disease_type        VARCHAR(100),
+    severity            VARCHAR(20) CHECK (severity IN ('Mild', 'Moderate', 'Severe')),
+    cholesterol_mg_dl   NUMERIC(6,2) CHECK (cholesterol_mg_dl >= 0),
+    blood_pressure_mmhg NUMERIC(5,2) CHECK (blood_pressure_mmhg >= 0),
+    glucose_mg_dl       NUMERIC(6,2) CHECK (glucose_mg_dl >= 0),
+    recorded_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_medical_profiles_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Préférences alimentaires déclarées (historisées pour suivre les changements)
+CREATE TABLE dietary_preferences (
+    dietary_preference_id  BIGSERIAL PRIMARY KEY,
+    user_id                 INTEGER NOT NULL,
+    dietary_restrictions    VARCHAR(255),
+    allergies               VARCHAR(255),
+    preferred_cuisine       VARCHAR(100),
+    recorded_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_dietary_preferences_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Auto-évaluation du niveau d'activité/forme (distinct des faits mesurés
+-- dans workout_sessions/workout_sets)
+CREATE TABLE fitness_profiles (
+    fitness_profile_id              BIGSERIAL PRIMARY KEY,
+    user_id                         INTEGER NOT NULL,
+    physical_activity_level         VARCHAR(20),
+    workout_frequency_days_per_week SMALLINT CHECK (workout_frequency_days_per_week BETWEEN 0 AND 7),
+    experience_level                VARCHAR(20),
+    weekly_exercise_hours           NUMERIC(5,2) CHECK (weekly_exercise_hours >= 0),
+    recorded_at                     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_fitness_profiles_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Sortie du moteur de recommandation diététique (1 utilisateur -> N
+-- recommandations générées dans le temps)
+CREATE TABLE diet_recommendations (
+    diet_recommendation_id           BIGSERIAL PRIMARY KEY,
+    user_id                          INTEGER NOT NULL,
+    daily_caloric_intake_kcal        NUMERIC(7,2) CHECK (daily_caloric_intake_kcal >= 0),
+    adherence_to_diet_plan_pct       NUMERIC(5,2) CHECK (adherence_to_diet_plan_pct BETWEEN 0 AND 100),
+    dietary_nutrient_imbalance_score NUMERIC(6,2),
+    recommendation                   VARCHAR(50),
+    recommended_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_diet_recommendations_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
 CREATE TABLE data_quality_log (
     dq_log_id         BIGSERIAL PRIMARY KEY,
     source_table      VARCHAR(100) NOT NULL,
@@ -121,4 +174,8 @@ CREATE TABLE data_quality_log (
 CREATE INDEX idx_nutrition_logs_user_logged_at ON nutrition_logs (user_id, logged_at);
 CREATE INDEX idx_workout_sessions_user_started_at ON workout_sessions (user_id, started_at);
 CREATE INDEX idx_biometric_measurements_user_measured_at ON biometric_measurements (user_id, measured_at);
+CREATE INDEX idx_medical_profiles_user_recorded_at ON medical_profiles (user_id, recorded_at);
+CREATE INDEX idx_dietary_preferences_user_recorded_at ON dietary_preferences (user_id, recorded_at);
+CREATE INDEX idx_fitness_profiles_user_recorded_at ON fitness_profiles (user_id, recorded_at);
+CREATE INDEX idx_diet_recommendations_user_recommended_at ON diet_recommendations (user_id, recommended_at);
 CREATE INDEX idx_data_quality_log_unresolved ON data_quality_log (resolved) WHERE resolved = FALSE;
