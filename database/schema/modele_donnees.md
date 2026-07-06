@@ -19,7 +19,7 @@ erDiagram
     USERS ||--o{ DIETARY_PREFERENCES : déclare
     USERS ||--o{ FITNESS_PROFILES : "s'auto-évalue"
     USERS ||--o{ DIET_RECOMMENDATIONS : reçoit
-    USERS ||--o{ DATA_QUALITY_LOG : "résout (optionnel)"
+    USERS |o--o{ DATA_QUALITY_LOG : "résout (optionnel)"
 
     USERS {
         int user_id PK
@@ -157,7 +157,7 @@ DIET_RECOMMENDATIONS (diet_recommendation_id, #user_id, daily_caloric_intake_kca
 DATA_QUALITY_LOG (dq_log_id, source_table, source_record_id, dag_id, rule_name, severity, message, detected_at, resolved, resolved_at, #resolved_by)
 ```
 
-Toutes les associations du MCD sont de cardinalité 1,N côté "possède/contient" — aucune table associative n'est nécessaire, chaque FK est absorbée côté table "N".
+Toutes les associations du MCD sont de cardinalité (1,N) côté "possède/contient" — c'est-à-dire FK `NOT NULL` (participation obligatoire) — **sauf `DATA_QUALITY_LOG.resolved_by`, en (0,N)** : une anomalie peut rester non résolue (FK nullable), donc la cardinalité côté `USERS` est `(0,1)` et non `(1,1)` comme pour toutes les autres relations. Aucune table associative n'est nécessaire par ailleurs, chaque FK est absorbée côté table "N".
 
 ---
 
