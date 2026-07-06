@@ -30,6 +30,7 @@ CREATE TABLE food_items (
     fiber_g         NUMERIC(6,2) CHECK (fiber_g >= 0),
     sugar_g         NUMERIC(6,2) CHECK (sugar_g >= 0),
     sodium_mg       NUMERIC(7,2) CHECK (sodium_mg >= 0),
+    cholesterol_mg  NUMERIC(7,2) CHECK (cholesterol_mg >= 0),
     serving_size_g  NUMERIC(6,2) CHECK (serving_size_g > 0),
     ingested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (source, external_id)
