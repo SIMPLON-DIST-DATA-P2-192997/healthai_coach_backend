@@ -7,19 +7,21 @@
 
 ## 1. MCD (Modèle Conceptuel de Données)
 
+**Lecture des cardinalités** : chaque libellé porte les deux paires (min,max) au format `(entité gauche) verbe (entité droite)` — ex. `(0,n) enregistre (1,1)` se lit "un USER enregistre 0 à N NUTRITION_LOGS ; un NUTRITION_LOGS appartient à exactement 1 USER". Les symboles pieds-de-corbeau (`||`, `o{`, `|o`) restent en plus pour le rendu graphique, mais c'est la paire écrite qui fait foi.
+
 ```mermaid
 erDiagram
-    USERS ||--o{ NUTRITION_LOGS : enregistre
-    FOOD_ITEMS ||--o{ NUTRITION_LOGS : "est consommé dans"
-    USERS ||--o{ WORKOUT_SESSIONS : réalise
-    WORKOUT_SESSIONS ||--o{ WORKOUT_SETS : contient
-    EXERCISES ||--o{ WORKOUT_SETS : "est utilisé dans"
-    USERS ||--o{ BIOMETRIC_MEASUREMENTS : mesure
-    USERS ||--o{ MEDICAL_PROFILES : "a un historique"
-    USERS ||--o{ DIETARY_PREFERENCES : déclare
-    USERS ||--o{ FITNESS_PROFILES : "s'auto-évalue"
-    USERS ||--o{ DIET_RECOMMENDATIONS : reçoit
-    USERS |o--o{ DATA_QUALITY_LOG : "résout (optionnel)"
+    USERS ||--o{ NUTRITION_LOGS : "(0,n) enregistre (1,1)"
+    FOOD_ITEMS ||--o{ NUTRITION_LOGS : "(0,n) est consommé dans (1,1)"
+    USERS ||--o{ WORKOUT_SESSIONS : "(0,n) réalise (1,1)"
+    WORKOUT_SESSIONS ||--o{ WORKOUT_SETS : "(0,n) contient (1,1)"
+    EXERCISES ||--o{ WORKOUT_SETS : "(0,n) est utilisé dans (1,1)"
+    USERS ||--o{ BIOMETRIC_MEASUREMENTS : "(0,n) mesure (1,1)"
+    USERS ||--o{ MEDICAL_PROFILES : "(0,n) a un historique (1,1)"
+    USERS ||--o{ DIETARY_PREFERENCES : "(0,n) déclare (1,1)"
+    USERS ||--o{ FITNESS_PROFILES : "(0,n) s'auto-évalue (1,1)"
+    USERS ||--o{ DIET_RECOMMENDATIONS : "(0,n) reçoit (1,1)"
+    USERS |o--o{ DATA_QUALITY_LOG : "(0,n) résout (0,1)"
 
     USERS {
         int user_id PK
@@ -116,6 +118,10 @@ erDiagram
     }
 ```
 
+### Note de conception : pourquoi `WORKOUT_SETS` ?
+
+`WORKOUT_SESSIONS` et `EXERCISES` sont conceptuellement en relation N,N : une séance comporte plusieurs exercices, un exercice apparaît dans plusieurs séances. Suivant la règle Merise de résolution des associations N,N, cette association devient sa propre table dans le MLD — c'est `WORKOUT_SETS`. Ce n'est pas une simple table de jonction technique : elle porte ses propres attributs (`set_number`, `reps`, `weight_kg`, `duration_seconds`, `distance_m`) qui ne peuvent appartenir ni à `WORKOUT_SESSIONS` seule (une séance a des reps/poids différents par exercice) ni à `EXERCISES` seule (le même exercice a des reps/poids différents selon la séance) — ce sont des attributs de l'association elle-même. Elle va même plus loin qu'une simple résolution N,N : la granularité réelle n'est pas "séance × exercice" mais "séance × exercice × numéro de série", pour tracer chaque série individuellement (progression des charges dans le temps).
+
 ### Points à valider avec le Rôle A
 
 - Pas d'entité "coach" distincte des `USERS` (un simple flag `is_admin`) — à confirmer si un rôle coach séparé est nécessaire.
@@ -165,6 +171,8 @@ Toutes les associations du MCD sont de cardinalité (1,N) côté "possède/conti
 
 Traduit en PostgreSQL dans [`ddl_postgres.sql`](./ddl_postgres.sql) : types précis, contraintes `CHECK`, `NOT NULL`, `UNIQUE`, `ON DELETE`, et index sur les colonnes de filtrage/tri fréquents (`user_id` + colonne temporelle sur chaque table de journal).
 
+**Le diagramme généré par drawdb (*Import → SQL* à partir de `ddl_postgres.sql`) est une vue du MPD**, pas du MCD : il affiche les types SQL concrets (`SERIAL`, `VARCHAR(255)`, `NUMERIC(7,2)`...) et les contraintes physiques, avec une notation simplifiée `1`/`n` qui code uniquement le maximum — jamais l'optionalité (0 vs 1). Pour vérifier une cardinalité Merise complète (min,max), se référer au MCD ci-dessus ou à la nullabilité des colonnes FK dans le DDL.
+
 ## Import dans drawdb
 
-Le fichier `ddl_postgres.sql` peut être importé directement dans [drawdb](https://drawdb.app) via *Import → SQL* pour obtenir le diagramme visuel.
+Le fichier `ddl_postgres.sql` peut être importé directement dans [drawdb](https://drawdb.app) via *Import → SQL* pour obtenir le diagramme visuel (MPD).
