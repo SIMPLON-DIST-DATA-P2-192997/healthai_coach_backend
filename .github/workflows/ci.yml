@@ -21,7 +21,9 @@ jobs:
       # Squelette Sprint 0 — logique de lint/tests réelle ajoutée
       # au fil des sprints (ETL, API, data quality)
       - name: Lint (placeholder)
-        run: echo "TODO: lint (ruff/flake8)"
+        run: |
+          echo "TODO: lint (ruff/flake8)"
 
       - name: Tests (placeholder)
-        run: echo "TODO: pytest"
+        run: |
+          echo "TODO: pytest"
