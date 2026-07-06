@@ -5,7 +5,7 @@
 -- ============================================================
 
 CREATE TABLE users (
-    user_id         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id         SERIAL PRIMARY KEY,
     email           VARCHAR(255) NOT NULL UNIQUE,
     hashed_password VARCHAR(255) NOT NULL,
     first_name      VARCHAR(100) NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE food_items (
-    food_item_id    INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    food_item_id    SERIAL PRIMARY KEY,
     external_id     VARCHAR(100),
     source          VARCHAR(50) NOT NULL,
     name            VARCHAR(255) NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE food_items (
 );
 
 CREATE TABLE nutrition_logs (
-    log_id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    log_id          BIGSERIAL PRIMARY KEY,
     user_id         INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     food_item_id    INTEGER NOT NULL REFERENCES food_items(food_item_id) ON DELETE RESTRICT,
     quantity_g      NUMERIC(6,2) NOT NULL CHECK (quantity_g > 0),
@@ -46,7 +46,7 @@ CREATE TABLE nutrition_logs (
 );
 
 CREATE TABLE exercises (
-    exercise_id     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    exercise_id     SERIAL PRIMARY KEY,
     external_id     VARCHAR(100),
     source          VARCHAR(50) NOT NULL DEFAULT 'exercisedb',
     name            VARCHAR(255) NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE exercises (
 );
 
 CREATE TABLE workout_sessions (
-    session_id      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    session_id      BIGSERIAL PRIMARY KEY,
     user_id         INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     started_at      TIMESTAMPTZ NOT NULL,
     ended_at        TIMESTAMPTZ,
@@ -70,7 +70,7 @@ CREATE TABLE workout_sessions (
 );
 
 CREATE TABLE workout_sets (
-    set_id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    set_id           BIGSERIAL PRIMARY KEY,
     session_id       BIGINT NOT NULL REFERENCES workout_sessions(session_id) ON DELETE CASCADE,
     exercise_id      INTEGER NOT NULL REFERENCES exercises(exercise_id) ON DELETE RESTRICT,
     set_number       SMALLINT NOT NULL CHECK (set_number > 0),
@@ -82,7 +82,7 @@ CREATE TABLE workout_sets (
 );
 
 CREATE TABLE biometric_measurements (
-    measurement_id      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    measurement_id      BIGSERIAL PRIMARY KEY,
     user_id             INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     measured_at         TIMESTAMPTZ NOT NULL,
     weight_kg           NUMERIC(5,2) CHECK (weight_kg > 0),
@@ -96,7 +96,7 @@ CREATE TABLE biometric_measurements (
 );
 
 CREATE TABLE data_quality_log (
-    dq_log_id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    dq_log_id         BIGSERIAL PRIMARY KEY,
     source_table      VARCHAR(100) NOT NULL,
     source_record_id  VARCHAR(100),
     dag_id            VARCHAR(150),
