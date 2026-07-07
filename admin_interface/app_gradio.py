@@ -6,8 +6,8 @@ peuplée (cf. database/seed/ ou l'ETL réel).
 Accessibilité RGAA AA : chaque champ porte un label explicite, aucune
 information n'est portée par la seule couleur (la sévérité est affichée en
 texte dans le tableau), navigation clavier native de Gradio (pas de JS/souris
-obligatoire, thème par défaut non modifié pour préserver le contraste validé
-par Gradio).
+obligatoire, thème intégré `Soft` — pas de CSS personnalisé qui risquerait de
+casser le contraste déjà validé par Gradio pour ses propres thèmes).
 
 Usage :
     pip install -r admin_interface/requirements.txt
@@ -31,21 +31,37 @@ RESOLVED_LABELS = {"Toutes": None, "Résolues": True, "Non résolues": False}
 # s'affiche empilé caractère par caractère (illisible, cf. capture de test).
 COLUMN_WIDTHS = [
     "90px",   # dq_log_id
-    "150px",  # source_table
-    "130px",  # source_record_id
-    "130px",  # dag_id
-    "170px",  # rule_name
+    "170px",  # source_table
+    "180px",  # source_record_id
+    "160px",  # dag_id
+    "210px",  # rule_name
     "100px",  # severity
     "320px",  # message
-    "170px",  # detected_at
+    "150px",  # detected_at (date formatée, cf. _format_datetime)
     "90px",   # resolved
-    "170px",  # resolved_at
+    "150px",  # resolved_at (date formatée)
     "110px",  # resolved_by
 ]
 
 
+def _format_datetime(value):
+    """Format court et lisible pour l'affichage (l'export CSV/JSON garde la
+    précision complète via exporters._serialize, indépendant de cette fonction)."""
+    if value is None:
+        return None
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d %H:%M")
+    return value
+
+
 def _rows_to_table(rows):
-    return [[row.get(c) for c in COLUMNS] for row in rows]
+    return [
+        [
+            _format_datetime(row.get(c)) if c in ("detected_at", "resolved_at") else row.get(c)
+            for c in COLUMNS
+        ]
+        for row in rows
+    ]
 
 
 def refresh(severity, resolved_filter, source_table):
@@ -96,56 +112,60 @@ def build_app():
 
     with gr.Blocks(title="HealthAI Coach — Qualité des données") as demo:
         gr.Markdown(
-            "# Qualité des données\n"
+            "# 🩺 Qualité des données\n"
             "Consultation, correction manuelle et export des anomalies détectées par l'ETL."
         )
 
         current_rows = gr.State([])
 
-        with gr.Row():
-            severity_filter = gr.Dropdown(
-                choices=["Toutes"] + SEVERITIES,
-                value="Toutes",
-                label="Sévérité",
-            )
-            resolved_filter = gr.Dropdown(
-                choices=list(RESOLVED_LABELS.keys()),
-                value="Non résolues",
-                label="Statut de résolution",
-            )
-            source_table_filter = gr.Textbox(
-                label="Table source (filtre partiel)",
-                placeholder="ex. food_items",
-            )
-            refresh_btn = gr.Button("Rafraîchir")
+        with gr.Group():
+            gr.Markdown("### Filtres")
+            with gr.Row():
+                severity_filter = gr.Dropdown(
+                    choices=["Toutes"] + SEVERITIES,
+                    value="Toutes",
+                    label="Sévérité",
+                )
+                resolved_filter = gr.Dropdown(
+                    choices=list(RESOLVED_LABELS.keys()),
+                    value="Non résolues",
+                    label="Statut de résolution",
+                )
+                source_table_filter = gr.Textbox(
+                    label="Table source (filtre partiel)",
+                    placeholder="ex. food_items",
+                )
+                refresh_btn = gr.Button("🔄 Rafraîchir", variant="secondary")
 
-        table = gr.Dataframe(
-            headers=COLUMNS,
-            label="Anomalies détectées",
-            interactive=False,
-            wrap=False,
-            column_widths=COLUMN_WIDTHS,
-            max_chars=80,
-            pinned_columns=1,
-            buttons=["fullscreen", "copy"],
-        )
-
-        gr.Markdown("## Correction manuelle")
-        with gr.Row():
-            resolve_id = gr.Number(label="Identifiant de l'anomalie (dq_log_id)", precision=0)
-            admin_dropdown = gr.Dropdown(
-                choices=admin_choices,
-                value=None,
-                label="Résolu par (administrateur)",
+            table = gr.Dataframe(
+                headers=COLUMNS,
+                label="Anomalies détectées",
+                interactive=False,
+                wrap=False,
+                column_widths=COLUMN_WIDTHS,
+                max_chars=80,
+                pinned_columns=1,
+                buttons=["fullscreen", "copy"],
             )
-            resolve_btn = gr.Button("Marquer comme résolu")
-        resolve_status = gr.Markdown()
 
-        gr.Markdown("## Export")
-        with gr.Row():
-            export_csv_btn = gr.Button("Exporter en CSV")
-            export_json_btn = gr.Button("Exporter en JSON")
-        export_file = gr.File(label="Fichier exporté")
+        with gr.Group():
+            gr.Markdown("### ✏️ Correction manuelle")
+            with gr.Row():
+                resolve_id = gr.Number(label="Identifiant de l'anomalie (dq_log_id)", precision=0)
+                admin_dropdown = gr.Dropdown(
+                    choices=admin_choices,
+                    value=None,
+                    label="Résolu par (administrateur)",
+                )
+                resolve_btn = gr.Button("Marquer comme résolu", variant="primary")
+            resolve_status = gr.Markdown()
+
+        with gr.Group():
+            gr.Markdown("### ⬇️ Export")
+            with gr.Row():
+                export_csv_btn = gr.Button("Exporter en CSV", variant="secondary")
+                export_json_btn = gr.Button("Exporter en JSON", variant="secondary")
+            export_file = gr.File(label="Fichier exporté", height=100)
 
         filter_inputs = [severity_filter, resolved_filter, source_table_filter]
 
@@ -165,4 +185,4 @@ def build_app():
 
 if __name__ == "__main__":
     app = build_app()
-    app.launch()
+    app.launch(theme=gr.themes.Soft())
