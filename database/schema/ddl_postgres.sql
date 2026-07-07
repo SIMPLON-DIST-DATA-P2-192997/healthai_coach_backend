@@ -48,18 +48,34 @@ CREATE TABLE nutrition_logs (
     CONSTRAINT fk_nutrition_logs_food_item FOREIGN KEY (food_item_id) REFERENCES food_items(food_item_id) ON DELETE RESTRICT
 );
 
+-- Colonnes basées sur l'inspection réelle de free-exercise-db (873 exercices) :
+-- category/equipment/level/mechanic/force/primary_muscle sont systématiquement
+-- des valeurs uniques (aucune violation de 1NF constatée) — seules les muscles
+-- secondaires sont multivaluées, cf. exercise_secondary_muscles ci-dessous.
 CREATE TABLE exercises (
     exercise_id     SERIAL PRIMARY KEY,
     external_id     VARCHAR(100),
-    source          VARCHAR(50) NOT NULL DEFAULT 'exercisedb',
+    source          VARCHAR(50) NOT NULL DEFAULT 'free-exercise-db',
     name            VARCHAR(255) NOT NULL,
-    body_part       VARCHAR(100),
-    target_muscle   VARCHAR(100),
+    category        VARCHAR(50),
     equipment       VARCHAR(100),
+    primary_muscle  VARCHAR(100),
+    level           VARCHAR(20) CHECK (level IN ('beginner', 'intermediate', 'expert')),
+    mechanic        VARCHAR(20) CHECK (mechanic IN ('compound', 'isolation')),
+    force           VARCHAR(20) CHECK (force IN ('push', 'pull', 'static')),
     gif_url         TEXT,
     instructions    TEXT,
     ingested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (source, external_id)
+);
+
+-- Muscles secondaires : seul attribut réellement multivalué constaté (0 à 10
+-- valeurs selon l'exercice) -> résolu en table de jointure (1NF).
+CREATE TABLE exercise_secondary_muscles (
+    exercise_id     INTEGER NOT NULL,
+    muscle          VARCHAR(100) NOT NULL,
+    PRIMARY KEY (exercise_id, muscle),
+    CONSTRAINT fk_exercise_secondary_muscles_exercise FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id) ON DELETE CASCADE
 );
 
 CREATE TABLE workout_sessions (
