@@ -4,18 +4,19 @@ Revision ID: ae3640ea4852
 Revises: 60a90856c89f
 Create Date: 2026-07-07 11:12:22.731812
 
-Motivation : l'extraction ExerciseDB a montré que la plupart des attributs
-présentés comme des tableaux par l'API (category, equipment, primary_muscle,
-level, mechanic, force) sont en réalité toujours des valeurs uniques dans les
-données réelles (vérifié sur les 873 exercices de free-exercise-db) — seuls
-les muscles secondaires varient réellement de 0 à 10 valeurs par exercice.
-D'où la normalisation ciblée uniquement sur ce point (cf. modele_donnees.md,
-section "Note de conception : pourquoi EXERCISE_SECONDARY_MUSCLES seulement").
+Source retenue pour l'extraction ExerciseDB : oss.exercisedb.dev (API
+gratuite, 1500 exercices, pagination correcte via le paramètre `after` —
+attention : `nextCursor`/`offset`/`page`/`limit` élevé sont silencieusement
+ignorés par l'API, `limit` est plafonné à 25 par requête, cf. spec OpenAPI
+`/swagger`).
 
-Remplace aussi source/body_part/target_muscle par des colonnes reflétant le
-vocabulaire réel de la source (category, primary_muscle, level, mechanic,
-force), la source ExerciseDB retenue étant free-exercise-db et non
-oss.exercisedb.dev (tier gratuit plafonné à 25 exercices, cf. même note).
+Sur les 1500 exercices réels : bodyParts/equipments/targetMuscles sont
+systématiquement des valeurs uniques (aucune violation de 1NF) — déjà
+correctement modélisés en colonnes simples depuis le Sprint 1
+(body_part/equipment/target_muscle). Seuls les muscles secondaires varient
+réellement (0 à 10 valeurs selon l'exercice), d'où cette unique table de
+jointure (cf. modele_donnees.md, section "Note de conception : pourquoi
+EXERCISE_SECONDARY_MUSCLES seulement").
 """
 from typing import Sequence, Union
 
@@ -30,22 +31,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.execute("ALTER TABLE exercises ALTER COLUMN source SET DEFAULT 'free-exercise-db'")
-    op.execute("ALTER TABLE exercises DROP COLUMN IF EXISTS body_part")
-    op.execute("ALTER TABLE exercises RENAME COLUMN target_muscle TO primary_muscle")
-    op.execute("ALTER TABLE exercises ADD COLUMN category VARCHAR(50)")
-    op.execute(
-        "ALTER TABLE exercises ADD COLUMN level VARCHAR(20) "
-        "CHECK (level IN ('beginner', 'intermediate', 'expert'))"
-    )
-    op.execute(
-        "ALTER TABLE exercises ADD COLUMN mechanic VARCHAR(20) "
-        "CHECK (mechanic IN ('compound', 'isolation'))"
-    )
-    op.execute(
-        "ALTER TABLE exercises ADD COLUMN force VARCHAR(20) "
-        "CHECK (force IN ('push', 'pull', 'static'))"
-    )
     op.execute(
         """
         CREATE TABLE exercise_secondary_muscles (
@@ -62,10 +47,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.execute("DROP TABLE IF EXISTS exercise_secondary_muscles CASCADE")
-    op.execute("ALTER TABLE exercises DROP COLUMN IF EXISTS force")
-    op.execute("ALTER TABLE exercises DROP COLUMN IF EXISTS mechanic")
-    op.execute("ALTER TABLE exercises DROP COLUMN IF EXISTS level")
-    op.execute("ALTER TABLE exercises DROP COLUMN IF EXISTS category")
-    op.execute("ALTER TABLE exercises RENAME COLUMN primary_muscle TO target_muscle")
-    op.execute("ALTER TABLE exercises ADD COLUMN body_part VARCHAR(100)")
-    op.execute("ALTER TABLE exercises ALTER COLUMN source SET DEFAULT 'exercisedb'")

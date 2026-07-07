@@ -146,7 +146,7 @@ def test_exercise_secondary_muscles_rejects_invalid_exercise_fk(cursor):
 def test_deleting_exercise_cascades_to_secondary_muscles(db_connection):
     with db_connection.cursor() as cur:
         cur.execute(
-            "INSERT INTO exercises (source, name, primary_muscle) VALUES ('test', 'Test Exercise', 'chest') "
+            "INSERT INTO exercises (source, name, target_muscle) VALUES ('test', 'Test Exercise', 'chest') "
             "RETURNING exercise_id"
         )
         exercise_id = cur.fetchone()[0]

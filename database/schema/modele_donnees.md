@@ -52,12 +52,9 @@ erDiagram
         int exercise_id PK
         string external_id
         string name
-        string category
+        string body_part
         string equipment
-        string primary_muscle
-        string level
-        string mechanic
-        string force
+        string target_muscle
     }
     EXERCISE_SECONDARY_MUSCLES {
         int exercise_id PK_FK
@@ -132,9 +129,9 @@ erDiagram
 
 ### Note de conception : pourquoi `EXERCISE_SECONDARY_MUSCLES` seulement (et pas `exercise_body_parts`/`exercise_equipment`) ?
 
-En préparant l'extraction ExerciseDB, plusieurs attributs semblaient a priori multivalués (`bodyParts`, `equipments`, `targetMuscles`, `secondaryMuscles` sont tous des tableaux dans l'API `oss.exercisedb.dev`). Plutôt que de normaliser par précaution, on a vérifié empiriquement sur les vraies données (873 exercices du dataset complet [`free-exercise-db`](https://github.com/yuhonas/free-exercise-db)) : `category`, `equipment`, `primary_muscle`, `level`, `mechanic`, `force` sont **systématiquement** des valeurs uniques (aucune violation de 1NF), alors que `secondaryMuscles` varie réellement de 0 à 10 valeurs selon l'exercice. Seul cet attribut justifie une table de jointure — normaliser les autres aurait ajouté de la complexité (jointures) sans bénéfice, pour un cas qui ne se présente jamais dans les données réelles.
+Source retenue pour l'extraction ExerciseDB : [`oss.exercisedb.dev`](https://oss.exercisedb.dev/docs) (API gratuite, sans clé, 1500 exercices). En préparant l'extraction, plusieurs attributs semblaient a priori multivalués (`bodyParts`, `equipments`, `targetMuscles`, `secondaryMuscles` sont tous des tableaux côté API). Plutôt que de normaliser par précaution, on a vérifié empiriquement sur les 1500 exercices réels : `bodyParts`, `equipments`, `targetMuscles` sont **systématiquement** des valeurs uniques (aucune violation de 1NF) — déjà correctement modélisés en colonnes simples depuis le Sprint 1 (`body_part`, `equipment`, `target_muscle`). Seul `secondaryMuscles` varie réellement (0 à 10 valeurs selon l'exercice), d'où l'unique table de jointure `EXERCISE_SECONDARY_MUSCLES`.
 
-**Point d'attention pour l'ETL (Sprint 2)** : l'API `oss.exercisedb.dev` (gratuite, sans clé) plafonne à 25 exercices exploitables quel que soit le paramètre de pagination essayé (`nextCursor`, `offset`, `page`, `limit` élevé — tous ignorés en pratique) ; ce n'est pas un bug de notre côté mais une limitation du tier gratuit. La source recommandée pour une extraction complète est [`free-exercise-db`](https://github.com/yuhonas/free-exercise-db) (873 exercices, domaine public, un seul fichier JSON, pas de pagination ni de clé). Voir l'exemple `docs/exemple_extraction_exercisedb.py`.
+**Point d'attention pour l'ETL (Sprint 2) — pagination** : le paramètre correct est `after=<exerciseId>` (valeur prise dans `meta.nextCursor` de la réponse précédente) — **pas** `nextCursor`, `offset`, `page` ni un `limit` élevé, silencieusement ignorés par l'API (confirmé en consultant la spec OpenAPI `/swagger`). `limit` est plafonné à 25 par requête ; avec le bon paramètre `after`, la pagination fonctionne et permet de récupérer les 1500 exercices (vérifié en conditions réelles). Voir l'exemple `docs/exemple_extraction_exercisedb.py`.
 
 ### Points à valider avec le Rôle A
 
@@ -158,7 +155,7 @@ FOOD_ITEMS (food_item_id, external_id, source, name, brand, calories_kcal, prote
 
 NUTRITION_LOGS (log_id, #user_id, #food_item_id, quantity_g, meal_type, logged_at, created_at)
 
-EXERCISES (exercise_id, external_id, source, name, category, equipment, primary_muscle, level, mechanic, force, gif_url, instructions, ingested_at)
+EXERCISES (exercise_id, external_id, source, name, body_part, equipment, target_muscle, gif_url, instructions, ingested_at)
 
 EXERCISE_SECONDARY_MUSCLES (#exercise_id, muscle)
 
