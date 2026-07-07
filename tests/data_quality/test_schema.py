@@ -24,6 +24,7 @@ EXPECTED_TABLES = {
     "food_items",
     "nutrition_logs",
     "exercises",
+    "exercise_secondary_muscles",
     "workout_sessions",
     "workout_sets",
     "biometric_measurements",
@@ -133,3 +134,29 @@ def test_data_quality_log_accepts_consistent_rows(cursor):
         VALUES ('food_items', 'check_range', 'info', 'résolu, valide', TRUE, now())
         """
     )
+
+
+def test_exercise_secondary_muscles_rejects_invalid_exercise_fk(cursor):
+    with pytest.raises(psycopg2.errors.ForeignKeyViolation):
+        cursor.execute(
+            "INSERT INTO exercise_secondary_muscles (exercise_id, muscle) VALUES (999999, 'triceps')"
+        )
+
+
+def test_deleting_exercise_cascades_to_secondary_muscles(db_connection):
+    with db_connection.cursor() as cur:
+        cur.execute(
+            "INSERT INTO exercises (source, name, target_muscle) VALUES ('test', 'Test Exercise', 'chest') "
+            "RETURNING exercise_id"
+        )
+        exercise_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO exercise_secondary_muscles (exercise_id, muscle) VALUES (%s, 'triceps')",
+            (exercise_id,),
+        )
+        cur.execute("DELETE FROM exercises WHERE exercise_id = %s", (exercise_id,))
+        cur.execute(
+            "SELECT COUNT(*) FROM exercise_secondary_muscles WHERE exercise_id = %s", (exercise_id,)
+        )
+        assert cur.fetchone()[0] == 0, "ON DELETE CASCADE n'a pas supprimé les muscles secondaires"
+    db_connection.rollback()

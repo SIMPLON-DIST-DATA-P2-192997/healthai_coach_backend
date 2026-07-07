@@ -16,6 +16,7 @@ erDiagram
     USERS ||--o{ WORKOUT_SESSIONS : "(0,n) réalise (1,1)"
     WORKOUT_SESSIONS ||--o{ WORKOUT_SETS : "(0,n) contient (1,1)"
     EXERCISES ||--o{ WORKOUT_SETS : "(0,n) est utilisé dans (1,1)"
+    EXERCISES ||--o{ EXERCISE_SECONDARY_MUSCLES : "(0,n) sollicite en secondaire (1,1)"
     USERS ||--o{ BIOMETRIC_MEASUREMENTS : "(0,n) mesure (1,1)"
     USERS ||--o{ MEDICAL_PROFILES : "(0,n) a un historique (1,1)"
     USERS ||--o{ DIETARY_PREFERENCES : "(0,n) déclare (1,1)"
@@ -52,8 +53,12 @@ erDiagram
         string external_id
         string name
         string body_part
-        string target_muscle
         string equipment
+        string target_muscle
+    }
+    EXERCISE_SECONDARY_MUSCLES {
+        int exercise_id PK_FK
+        string muscle PK
     }
     WORKOUT_SESSIONS {
         bigint session_id PK
@@ -122,6 +127,12 @@ erDiagram
 
 `WORKOUT_SESSIONS` et `EXERCISES` sont conceptuellement en relation N,N : une séance comporte plusieurs exercices, un exercice apparaît dans plusieurs séances. Suivant la règle Merise de résolution des associations N,N, cette association devient sa propre table dans le MLD — c'est `WORKOUT_SETS`. Ce n'est pas une simple table de jonction technique : elle porte ses propres attributs (`set_number`, `reps`, `weight_kg`, `duration_seconds`, `distance_m`) qui ne peuvent appartenir ni à `WORKOUT_SESSIONS` seule (une séance a des reps/poids différents par exercice) ni à `EXERCISES` seule (le même exercice a des reps/poids différents selon la séance) — ce sont des attributs de l'association elle-même. Elle va même plus loin qu'une simple résolution N,N : la granularité réelle n'est pas "séance × exercice" mais "séance × exercice × numéro de série", pour tracer chaque série individuellement (progression des charges dans le temps).
 
+### Note de conception : pourquoi `EXERCISE_SECONDARY_MUSCLES` seulement (et pas `exercise_body_parts`/`exercise_equipment`) ?
+
+Source retenue pour l'extraction ExerciseDB : [`oss.exercisedb.dev`](https://oss.exercisedb.dev/docs) (API gratuite, sans clé, 1500 exercices). En préparant l'extraction, plusieurs attributs semblaient a priori multivalués (`bodyParts`, `equipments`, `targetMuscles`, `secondaryMuscles` sont tous des tableaux côté API). Plutôt que de normaliser par précaution, on a vérifié empiriquement sur les 1500 exercices réels : `bodyParts`, `equipments`, `targetMuscles` sont **systématiquement** des valeurs uniques (aucune violation de 1NF) — déjà correctement modélisés en colonnes simples depuis le Sprint 1 (`body_part`, `equipment`, `target_muscle`). Seul `secondaryMuscles` varie réellement (0 à 10 valeurs selon l'exercice), d'où l'unique table de jointure `EXERCISE_SECONDARY_MUSCLES`.
+
+**Point d'attention pour l'ETL (Sprint 2) — pagination** : le paramètre correct est `after=<exerciseId>` (valeur prise dans `meta.nextCursor` de la réponse précédente) — **pas** `nextCursor`, `offset`, `page` ni un `limit` élevé, silencieusement ignorés par l'API (confirmé en consultant la spec OpenAPI `/swagger`). `limit` est plafonné à 25 par requête ; avec le bon paramètre `after`, la pagination fonctionne et permet de récupérer les 1500 exercices (vérifié en conditions réelles). Voir l'exemple `docs/exemple_extraction_exercisedb.py`.
+
 ### Points à valider avec le Rôle A
 
 - Pas d'entité "coach" distincte des `USERS` (un simple flag `is_admin`) — à confirmer si un rôle coach séparé est nécessaire.
@@ -144,7 +155,9 @@ FOOD_ITEMS (food_item_id, external_id, source, name, brand, calories_kcal, prote
 
 NUTRITION_LOGS (log_id, #user_id, #food_item_id, quantity_g, meal_type, logged_at, created_at)
 
-EXERCISES (exercise_id, external_id, source, name, body_part, target_muscle, equipment, gif_url, instructions, ingested_at)
+EXERCISES (exercise_id, external_id, source, name, body_part, equipment, target_muscle, gif_url, instructions, ingested_at)
+
+EXERCISE_SECONDARY_MUSCLES (#exercise_id, muscle)
 
 WORKOUT_SESSIONS (session_id, #user_id, started_at, ended_at, max_bpm, avg_bpm, notes, created_at)
 
