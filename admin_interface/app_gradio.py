@@ -37,9 +37,9 @@ COLUMN_WIDTHS = [
     "210px",  # rule_name
     "100px",  # severity
     "320px",  # message
-    "150px",  # detected_at (date formatée, cf. _format_datetime)
+    "200px",  # detected_at (date formatée, cf. _format_datetime)
     "90px",   # resolved
-    "150px",  # resolved_at (date formatée)
+    "200px",  # resolved_at (date formatée)
     "110px",  # resolved_by
 ]
 
@@ -154,7 +154,6 @@ def build_app():
                 resolve_id = gr.Number(label="Identifiant de l'anomalie (dq_log_id)", precision=0)
                 admin_dropdown = gr.Dropdown(
                     choices=admin_choices,
-                    value=None,
                     label="Résolu par (administrateur)",
                 )
                 resolve_btn = gr.Button("Marquer comme résolu", variant="primary")
