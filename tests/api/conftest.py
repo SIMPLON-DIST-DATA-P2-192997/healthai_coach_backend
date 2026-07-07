@@ -7,7 +7,13 @@ imported, so settings / engine / lifespan all use the same in-memory DB.
 """
 import os
 
-# Must be set BEFORE any api imports so pydantic-settings picks it up
+# Must be set BEFORE any api imports so pydantic-settings picks it up.
+# Restored right after those imports (not left mutated for the rest of the
+# process): pytest imports every conftest.py it discovers under `tests/` in
+# the same session, so leaving DATABASE_URL overwritten here leaks into
+# unrelated suites collected afterward (e.g. tests/data_quality/test_schema.py,
+# which expects DATABASE_URL to point at the real PostgreSQL service).
+_original_database_url = os.environ.get("DATABASE_URL")
 os.environ["DATABASE_URL"] = "sqlite://"
 
 import pytest
@@ -21,6 +27,11 @@ import api.main as _main_module
 from api.database import Base
 from api.main import app
 from api.core.deps import get_db
+
+if _original_database_url is None:
+    os.environ.pop("DATABASE_URL", None)
+else:
+    os.environ["DATABASE_URL"] = _original_database_url
 
 
 # ---------------------------------------------------------------------------
