@@ -26,6 +26,23 @@ from admin_interface.export.exporters import COLUMNS, to_csv_file, to_json_file
 
 RESOLVED_LABELS = {"Toutes": None, "Résolues": True, "Non résolues": False}
 
+# Largeurs explicites alignées sur COLUMNS : sans ça, les colonnes vides/
+# étroites (source_record_id, dag_id) se compressent et leur en-tête
+# s'affiche empilé caractère par caractère (illisible, cf. capture de test).
+COLUMN_WIDTHS = [
+    "90px",   # dq_log_id
+    "150px",  # source_table
+    "130px",  # source_record_id
+    "130px",  # dag_id
+    "170px",  # rule_name
+    "100px",  # severity
+    "320px",  # message
+    "170px",  # detected_at
+    "90px",   # resolved
+    "170px",  # resolved_at
+    "110px",  # resolved_by
+]
+
 
 def _rows_to_table(rows):
     return [[row.get(c) for c in COLUMNS] for row in rows]
@@ -106,7 +123,11 @@ def build_app():
             headers=COLUMNS,
             label="Anomalies détectées",
             interactive=False,
-            wrap=True,
+            wrap=False,
+            column_widths=COLUMN_WIDTHS,
+            max_chars=80,
+            pinned_columns=1,
+            buttons=["fullscreen", "copy"],
         )
 
         gr.Markdown("## Correction manuelle")
