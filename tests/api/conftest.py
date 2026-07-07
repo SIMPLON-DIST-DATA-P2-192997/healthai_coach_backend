@@ -22,6 +22,7 @@ from api.database import Base
 from api.main import app
 from api.core.deps import get_db
 
+
 # ---------------------------------------------------------------------------
 # Single shared in-memory SQLite engine (StaticPool = one connection for all)
 # ---------------------------------------------------------------------------
