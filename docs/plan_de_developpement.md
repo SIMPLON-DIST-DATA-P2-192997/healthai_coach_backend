@@ -1,6 +1,6 @@
-# HealthAI Coach — Directives Claude Code
-**De :** Rôle A — Architecte / Lead Data Engineer
-**Vers :** Claude Code
+# HealthAI Coach — Plan de développement
+**Rédigé par :** Rôle A — Architecte / Lead Data Engineer
+**Destinataires :** Équipe de développement
 **Statut :** Architecture validée par Alexandre — GO développement
 
 ---

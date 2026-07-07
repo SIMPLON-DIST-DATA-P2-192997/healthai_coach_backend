@@ -6,7 +6,7 @@ Backend data platform pour HealthAI Coach : ingestion et qualité des données n
 
 Ce dépôt héberge la plateforme data du projet HealthAI Coach : pipelines ETL (extraction, transformation, chargement), orchestration Airflow, base PostgreSQL, API FastAPI et outils de suivi de la qualité des données (dashboard Metabase, interface d'administration Gradio).
 
-Le détail des sprints et règles d'engagement est documenté dans [docs/directives_claude_code.md](docs/directives_claude_code.md).
+Le détail des sprints et règles d'engagement est documenté dans [docs/plan_de_developpement.md](docs/plan_de_developpement.md).
 
 ## Stack technique
 
@@ -57,4 +57,4 @@ docker compose up
 - Branche d'intégration : `dev`
 - Une branche par module : `feature/<module>`
 - Chaque étape = une Pull Request distincte, avec tests unitaires a minima
-- Voir [docs/directives_claude_code.md](docs/directives_claude_code.md) pour les règles complètes et le plan de sprints
+- Voir [docs/plan_de_developpement.md](docs/plan_de_developpement.md) pour les règles complètes et le plan de sprints
