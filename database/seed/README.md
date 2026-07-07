@@ -17,6 +17,31 @@ DATABASE_URL=postgresql://user:pass@host:5432/db python database/seed/seed_data.
 
 **Important** : ces 3 datasets sont des **snapshots/catalogues plats** (aucun `user_id`, aucune date pour 2 des 3), pas des journaux d'activité par utilisateur. Ils servent uniquement à peupler des données de test réalistes ; le modèle applicatif (`nutrition_logs`, `workout_sessions`, etc.) reste celui défini dans [`modele_donnees.md`](./modele_donnees.md).
 
+### Récupérer les datasets complets (au-delà des échantillons de 50 lignes)
+
+Nécessaire pour l'ETL du Sprint 2 (`etl/extract/`), pas pour lancer le seed (les échantillons dans `fixtures/` suffisent).
+
+1. Créer un compte sur [kaggle.com](https://www.kaggle.com) si besoin.
+2. Générer un token API : *Account* (menu avatar en haut à droite) → *Settings* → section *API* → **Create New Token**. Ça télécharge un fichier `kaggle.json` contenant `{"username": "...", "key": "..."}`.
+3. Placer ce fichier à l'emplacement attendu par le CLI, avec des droits restreints :
+   ```bash
+   mkdir -p ~/.kaggle
+   mv ~/Téléchargements/kaggle.json ~/.kaggle/kaggle.json
+   chmod 600 ~/.kaggle/kaggle.json
+   ```
+4. Installer le CLI dans un environnement isolé (les systèmes récents refusent le `pip install` global — PEP 668) :
+   ```bash
+   python3 -m venv .venv-kaggle
+   source .venv-kaggle/bin/activate
+   pip install kaggle
+   kaggle --version
+   ```
+   Alternative avec [pipx](https://pipx.pypa.io/) (plus adapté pour un outil en ligne de commande) : `pipx install kaggle`.
+5. Télécharger un dataset :
+   ```bash
+   kaggle datasets download -d ziya07/diet-recommendations-dataset --unzip -p chemin/de/sortie
+   ```
+
 ## Mapping colonnes -> tables
 
 ### `daily_food_nutrition_sample.csv` -> `food_items`
