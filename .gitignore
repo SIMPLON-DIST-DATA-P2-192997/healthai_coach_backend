@@ -235,3 +235,5 @@ airflow/standalone_admin_password.txt
 # ETL runtime logs
 etl/logs/*
 !etl/logs/.gitkeep
+
+etl/data/*
