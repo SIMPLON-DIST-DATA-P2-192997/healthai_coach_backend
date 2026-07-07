@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 
 from api.core.deps import CurrentUser, DB
 from api.crud.user import update_user
