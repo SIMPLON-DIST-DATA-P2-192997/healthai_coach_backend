@@ -1,0 +1,5 @@
+# Rôle A (Architecte / Lead Data Engineer) — owner sur les zones critiques
+# cf. docs/directives_claude_code.md
+/database/      @alaugier
+/airflow/dags/  @alaugier
+/docs/          @alaugier

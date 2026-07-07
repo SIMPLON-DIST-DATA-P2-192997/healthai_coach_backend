@@ -1,0 +1,16 @@
+# Squelette Sprint 0 — services et logique complète ajoutés au Sprint 6
+# (postgres, airflow webserver+scheduler, api, metabase, admin_interface)
+# Objectif Sprint 6 : `docker compose up` -> environnement fonctionnel en < 30 min
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
