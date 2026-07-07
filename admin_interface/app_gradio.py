@@ -6,8 +6,9 @@ peuplée (cf. database/seed/ ou l'ETL réel).
 Accessibilité RGAA AA : chaque champ porte un label explicite, aucune
 information n'est portée par la seule couleur (la sévérité est affichée en
 texte dans le tableau), navigation clavier native de Gradio (pas de JS/souris
-obligatoire, thème intégré `Soft` — pas de CSS personnalisé qui risquerait de
-casser le contraste déjà validé par Gradio pour ses propres thèmes).
+obligatoire, thème intégré `Soft` en palette grise neutre — pas de CSS
+personnalisé qui risquerait de casser le contraste déjà validé par Gradio
+pour ses propres thèmes).
 
 Usage :
     pip install -r admin_interface/requirements.txt
@@ -25,6 +26,10 @@ from admin_interface.db import SEVERITIES, list_admin_users, list_data_quality_l
 from admin_interface.export.exporters import COLUMNS, to_csv_file, to_json_file
 
 RESOLVED_LABELS = {"Toutes": None, "Résolues": True, "Non résolues": False}
+
+# Palette grise neutre plutôt que le bleu/violet par défaut du thème Soft,
+# jugé trop vif pour un outil interne (retour sur capture d'écran).
+THEME = gr.themes.Soft(primary_hue="slate", secondary_hue="slate", neutral_hue="slate")
 
 # Largeurs explicites alignées sur COLUMNS : sans ça, les colonnes vides/
 # étroites (source_record_id, dag_id) se compressent et leur en-tête
@@ -184,4 +189,4 @@ def build_app():
 
 if __name__ == "__main__":
     app = build_app()
-    app.launch(theme=gr.themes.Soft())
+    app.launch(theme=THEME)
