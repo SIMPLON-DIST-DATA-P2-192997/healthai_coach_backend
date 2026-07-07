@@ -8,4 +8,4 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     sub: str | None = None
-    role: str | None = None
+    is_admin: bool | None = None

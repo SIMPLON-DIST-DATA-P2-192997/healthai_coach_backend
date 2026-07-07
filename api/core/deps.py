@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from api.security.security import decode_token
 from api.database import SessionLocal
-from api.models.user import User, UserRole
+from api.models.user import User
 from api.schemas.token import TokenData
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -43,12 +43,12 @@ def get_current_user(
         sub: str | None = payload.get("sub")
         if sub is None:
             raise credentials_exc
-        TokenData(sub=sub, role=payload.get("role"))  # validate shape
+        TokenData(sub=sub, is_admin=payload.get("is_admin"))  # validate shape
     except JWTError:
         raise credentials_exc
 
     user: User | None = db.query(User).filter(User.id == int(sub)).first()
-    if user is None or not bool(user.is_active):  # type: ignore[arg-type]
+    if user is None:
         raise credentials_exc
     return user
 
@@ -56,7 +56,7 @@ def get_current_user(
 def get_current_admin(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    if str(current_user.role) != UserRole.ADMIN:  # type: ignore[comparison-overlap]
+    if not bool(current_user.is_admin):  # type: ignore[arg-type]
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required",

@@ -1,8 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr
-
-from api.models.user import UserRole
 
 
 # ---------------------------------------------------------------------------
@@ -11,8 +9,10 @@ from api.models.user import UserRole
 
 class UserBase(BaseModel):
     email: EmailStr
-    username: str
-    full_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    date_of_birth: date | None = None
+    sex: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -25,14 +25,16 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """Fields a regular user can update on themselves."""
-    full_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    date_of_birth: date | None = None
+    sex: str | None = None
     email: EmailStr | None = None
 
 
 class UserAdminUpdate(UserUpdate):
     """Extended update available to admins."""
-    role: UserRole | None = None
-    is_active: bool | None = None
+    is_admin: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -41,8 +43,7 @@ class UserAdminUpdate(UserUpdate):
 
 class UserRead(UserBase):
     id: int
-    role: UserRole
-    is_active: bool
+    is_admin: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
