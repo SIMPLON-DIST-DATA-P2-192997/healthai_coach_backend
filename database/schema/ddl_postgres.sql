@@ -167,7 +167,9 @@ CREATE TABLE data_quality_log (
     resolved          BOOLEAN NOT NULL DEFAULT FALSE,
     resolved_at       TIMESTAMPTZ,
     resolved_by       INTEGER,
-    CONSTRAINT fk_data_quality_log_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(user_id) ON DELETE SET NULL
+    CONSTRAINT fk_data_quality_log_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(user_id) ON DELETE SET NULL,
+    CONSTRAINT chk_data_quality_log_resolution_consistency
+        CHECK (resolved = TRUE OR (resolved_at IS NULL AND resolved_by IS NULL))
 );
 
 -- Index utiles pour les requêtes fréquentes (filtrage/tri par utilisateur + temps)

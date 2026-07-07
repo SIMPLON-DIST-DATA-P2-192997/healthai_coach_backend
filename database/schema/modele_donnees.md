@@ -171,6 +171,8 @@ Toutes les associations du MCD sont de cardinalité (1,N) côté "possède/conti
 
 Traduit en PostgreSQL dans [`ddl_postgres.sql`](./ddl_postgres.sql) : types précis, contraintes `CHECK`, `NOT NULL`, `UNIQUE`, `ON DELETE`, et index sur les colonnes de filtrage/tri fréquents (`user_id` + colonne temporelle sur chaque table de journal).
 
+`DATA_QUALITY_LOG` porte en plus un `CHECK` de cohérence (`chk_data_quality_log_resolution_consistency`) : `resolved_at`/`resolved_by` ne peuvent être renseignés que si `resolved = TRUE` — ce n'est pas une règle de forme normale (3NF ne regarde que les dépendances fonctionnelles), mais une règle métier qui aurait pu être violée silencieusement sans cette contrainte.
+
 **Le diagramme généré par drawdb (*Import → SQL* à partir de `ddl_postgres.sql`) est une vue du MPD**, pas du MCD : il affiche les types SQL concrets (`SERIAL`, `VARCHAR(255)`, `NUMERIC(7,2)`...) et les contraintes physiques, avec une notation simplifiée `1`/`n` qui code uniquement le maximum — jamais l'optionalité (0 vs 1). Pour vérifier une cardinalité Merise complète (min,max), se référer au MCD ci-dessus ou à la nullabilité des colonnes FK dans le DDL.
 
 ## Import dans drawdb
