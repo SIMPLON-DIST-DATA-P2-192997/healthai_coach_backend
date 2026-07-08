@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from api.config import settings
 from api.database import Base, engine
@@ -110,8 +111,14 @@ app.include_router(data_quality.router, prefix=settings.API_PREFIX)
 
 
 # ---------------------------------------------------------------------------
-# Health check
+# Root & health check
 # ---------------------------------------------------------------------------
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """Redirect to the interactive API docs."""
+    return RedirectResponse(url="/docs")
+
 
 @app.get("/health", tags=["health"], summary="Health check")
 def health_check() -> dict[str, str]:
