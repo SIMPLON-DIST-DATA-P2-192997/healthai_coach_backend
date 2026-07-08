@@ -33,7 +33,7 @@ def list_my_subscriptions(
     description="Return the authenticated user's currently active subscription.",
 )
 def read_my_current_subscription(current_user: CurrentUser, db: DB) -> SubscriptionRead:
-    sub = get_active_subscription(db, current_user.id)
+    sub = get_active_subscription(db, current_user.id)  # type: ignore[arg-type]
     if not sub:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active subscription")
     return sub  # type: ignore[return-value]
@@ -64,7 +64,7 @@ def subscribe_endpoint(
     "to the free tier.",
 )
 def cancel_my_subscription(current_user: CurrentUser, db: DB) -> SubscriptionRead:
-    sub = cancel_active_subscription(db, current_user.id)
+    sub = cancel_active_subscription(db, current_user.id)  # type: ignore[arg-type]
     if not sub:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active subscription")
     return sub  # type: ignore[return-value]
