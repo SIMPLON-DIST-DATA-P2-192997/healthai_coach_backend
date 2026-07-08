@@ -21,6 +21,16 @@ docker compose ps
 ```
 `db-init` doit apparaître `Exited (0)`, les autres `Up`/`healthy`.
 
+## Point de vigilance : `db-init` ne deviendra pas le vrai pipeline ETL
+
+`db-init` lance `database/seed/seed_data.py` — des données fictives/échantillon (50 lignes par source), avec un `TRUNCATE ... CASCADE` avant repeuplement. C'est fait pour le dev local et la démo, pas pour la production.
+
+Le vrai pipeline (`etl/load/postgres_loader.py`, Sprint 2, chez Johane/William) est conçu différemment : upsert idempotent (`ON CONFLICT DO UPDATE`, cf. convention documentée dans `docs/plan_de_developpement.md`), volumes réels, **jamais** de `TRUNCATE` — et sa vocation est de tourner de façon récurrente via des DAG Airflow planifiés (Sprint 3), pas comme conteneur à usage unique déclenché par `docker compose up`.
+
+**Ne jamais laisser `seed_data.py` dans `db-init` une fois que l'ETL réel alimente la base avec de vraies données** — le `TRUNCATE` effacerait tout à chaque `docker compose up`. Décision à prendre le moment venu (pas encore tranchée) :
+- soit retirer `seed_data.py` de `db-init` et ne garder que les migrations (schéma), en laissant Airflow peupler les données indépendamment ;
+- soit conditionner son exécution à une variable d'environnement dédiée (ex. `SEED_DEMO_DATA=true`), réservée aux environnements de démo/dev qui ne font pas tourner Airflow à côté.
+
 ## Accès aux services
 
 | Service | URL | Identifiants |
