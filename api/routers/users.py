@@ -7,13 +7,13 @@ from api.schemas.user import UserRead, UserUpdate
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me", response_model=UserRead)
+@router.get("/me", response_model=UserRead, summary="Get my profile")
 def read_current_user(current_user: CurrentUser) -> UserRead:
     """Return the currently authenticated user's profile."""
     return current_user  # type: ignore[return-value]
 
 
-@router.put("/me", response_model=UserRead)
+@router.put("/me", response_model=UserRead, summary="Update my profile")
 def update_current_user(
     update_data: UserUpdate,
     current_user: CurrentUser,

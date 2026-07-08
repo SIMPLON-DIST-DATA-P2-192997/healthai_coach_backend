@@ -13,7 +13,7 @@ from api.schemas.user import UserCreate, UserRead
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, summary="Log in")
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[Session, Depends(get_db)],
@@ -30,7 +30,9 @@ def login(
     return Token(access_token=token)
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, summary="Register"
+)
 def register(
     user_in: UserCreate,
     db: Annotated[Session, Depends(get_db)],
