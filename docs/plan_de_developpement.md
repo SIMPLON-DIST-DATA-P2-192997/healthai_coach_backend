@@ -79,6 +79,16 @@ Pour chaque module :
 
 **Note ExerciseDB** : forker `https://github.com/ExerciseDB/exercisedb-api` sous l'org Simplon avant de coder le client.
 
+### Convention : `users` créés à partir des datasets
+
+Les datasets Kaggle (diet_recommendations, gym_members...) ne contiennent aucun mot de passe : ce ne sont pas de vrais comptes, seulement des profils de référence pour peupler l'historique nutrition/exercice/biométrie. Ces `users` ne sont **jamais destinés à s'authentifier**. Convention à respecter dans `etl/load/postgres_loader.py`, cohérente avec `database/seed/seed_data.py` :
+
+- `email` : généré à partir de l'identifiant source (ex. `Patient_ID`), avec un suffixe placeholder explicite (`@seed.local` ou équivalent — à garder identique à celui du seed).
+- `hashed_password` : chaîne fixe non-fonctionnelle (`"seed-not-a-real-hash"`), jamais un vrai hash bcrypt — il n'y a pas de mot de passe en clair à hasher.
+- Si un besoin de « réclamer » un profil existant apparaît un jour (un vrai utilisateur associant son compte à un profil importé), ce sera un flux applicatif dédié côté API, pas une responsabilité de l'ETL.
+
+À l'inverse, les nouveaux utilisateurs créés via le frontend passent toujours par `POST /api/v1/auth/register` (`password` en clair dans la requête, hashé côté API par `hash_password()` — cf. `api/security/security.py`). Personne ne doit jamais écrire directement dans `hashed_password` à la main.
+
 ---
 
 ## SPRINT 3 — Orchestration Airflow
