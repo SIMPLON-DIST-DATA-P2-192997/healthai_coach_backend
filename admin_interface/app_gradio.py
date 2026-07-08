@@ -156,10 +156,20 @@ def build_app():
         with gr.Group():
             gr.Markdown("### ✏️ Correction manuelle")
             with gr.Row():
-                resolve_id = gr.Number(label="Identifiant de l'anomalie (dq_log_id)", precision=0)
+                resolve_id = gr.Number(
+                    label="Identifiant de l'anomalie (dq_log_id)",
+                    info="Numéro affiché dans la colonne 'dq_log_id' du tableau ci-dessus.",
+                    precision=0,
+                    minimum=1,
+                )
                 admin_dropdown = gr.Dropdown(
                     choices=admin_choices,
                     label="Résolu par (administrateur)",
+                    info=(
+                        "Optionnel : sélectionnez le compte admin qui traite cette anomalie, "
+                        "pour tracer qui a résolu quoi. Laissez sur 'Non renseigné' si vous "
+                        "ne souhaitez pas l'indiquer."
+                    ),
                 )
                 resolve_btn = gr.Button("Marquer comme résolu", variant="primary")
             resolve_status = gr.Markdown()
