@@ -9,7 +9,7 @@ from api.schemas.user import UserAdminUpdate, UserRead
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("/users", response_model=List[UserRead])
+@router.get("/users", response_model=List[UserRead], summary="List all users")
 def list_users(
     skip: int = 0,
     limit: int = 100,
@@ -20,7 +20,7 @@ def list_users(
     return get_users(db, skip=skip, limit=limit)  # type: ignore[return-value]
 
 
-@router.get("/users/{user_id}", response_model=UserRead)
+@router.get("/users/{user_id}", response_model=UserRead, summary="Get a user")
 def read_user(
     user_id: int,
     db: DB,
@@ -33,7 +33,7 @@ def read_user(
     return user  # type: ignore[return-value]
 
 
-@router.put("/users/{user_id}", response_model=UserRead)
+@router.put("/users/{user_id}", response_model=UserRead, summary="Update a user")
 def update_user_admin(
     user_id: int,
     update_data: UserAdminUpdate,
@@ -47,7 +47,7 @@ def update_user_admin(
     return update_user(db, user, update_data)  # type: ignore[return-value]
 
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a user")
 def delete_user_admin(
     user_id: int,
     db: DB,
