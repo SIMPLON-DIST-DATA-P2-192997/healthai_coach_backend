@@ -125,6 +125,22 @@ def seed_exercises(cur, gym_rows):
 SEX_MAP = {"Male": "M", "Female": "F"}
 
 
+def seed_admin_user(cur):
+    """Crée un compte admin de seed, sans quoi admin_interface n'a aucun choix
+    à proposer dans le menu 'Résolu par (administrateur)' (is_admin=TRUE
+    n'est renseigné nulle part ailleurs dans ce script)."""
+    cur.execute(
+        """
+        INSERT INTO users (email, hashed_password, first_name, last_name, is_admin)
+        VALUES (%s, %s, %s, %s, TRUE)
+        RETURNING user_id
+        """,
+        ("admin@healthai.local", "seed-not-a-real-hash", "Admin", "HealthAI"),
+    )
+    print("users (admin) : 1 ligne")
+    return cur.fetchone()[0]
+
+
 def seed_diet_recommendations_users(cur):
     rows = read_csv("diet_recommendations_sample.csv")
     now = datetime.now(timezone.utc)
@@ -350,6 +366,7 @@ def main():
         with conn:
             with conn.cursor() as cur:
                 truncate_all(cur)
+                seed_admin_user(cur)
                 food_item_ids = seed_food_items(cur)
                 exercise_ids = seed_exercises(cur, gym_rows)
                 diet_user_ids = seed_diet_recommendations_users(cur)
