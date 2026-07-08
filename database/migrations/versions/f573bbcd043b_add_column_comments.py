@@ -1,22 +1,26 @@
--- ============================================================
--- HealthAI Coach — Schéma PostgreSQL (MPD)
--- Sprint 1 : traduction du MCD/MLD (cf. modele_donnees.md)
--- Statut : proposition initiale à valider par le Rôle A
--- ============================================================
+r"""add column comments
 
-CREATE TABLE users (
-    user_id         SERIAL PRIMARY KEY,
-    email           VARCHAR(255) NOT NULL UNIQUE,
-    hashed_password VARCHAR(255) NOT NULL,
-    first_name      VARCHAR(100) NOT NULL,
-    last_name       VARCHAR(100) NOT NULL,
-    date_of_birth   DATE,
-    sex             VARCHAR(10) CHECK (sex IN ('F', 'M', 'other')),
-    is_admin        BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+Revision ID: f573bbcd043b
+Revises: 60a90856c89f
+Create Date: 2026-07-07 17:00:16.547123
 
+Documente en base (COMMENT ON) la signification de chaque table/colonne,
+suite à des questions de l'équipe sur des champs peu clairs (ex. `source`,
+`external_id`). Ces commentaires sont visibles via \d+ en psql ou tout
+client SQL (DBeaver, pgAdmin...), pas seulement dans ddl_postgres.sql.
+"""
+from typing import Sequence, Union
+
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision: str = 'f573bbcd043b'
+down_revision: Union[str, Sequence[str], None] = '60a90856c89f'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+UPGRADE_SQL = """
 COMMENT ON TABLE users IS 'Comptes utilisateurs de l''application (coachés et administrateurs).';
 COMMENT ON COLUMN users.user_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN users.email IS 'Adresse email, unique, utilisée pour l''authentification.';
@@ -28,26 +32,6 @@ COMMENT ON COLUMN users.sex IS 'Sexe déclaré : F, M ou other.';
 COMMENT ON COLUMN users.is_admin IS 'Si vrai, l''utilisateur a les droits d''administration (accès à l''interface qualité, résolution des anomalies dans data_quality_log).';
 COMMENT ON COLUMN users.created_at IS 'Date de création du compte.';
 COMMENT ON COLUMN users.updated_at IS 'Date de dernière modification du compte.';
-
-CREATE TABLE food_items (
-    food_item_id    SERIAL PRIMARY KEY,
-    external_id     VARCHAR(100),
-    source          VARCHAR(50) NOT NULL,
-    name            VARCHAR(255) NOT NULL,
-    brand           VARCHAR(255),
-    calories_kcal   NUMERIC(7,2) NOT NULL CHECK (calories_kcal >= 0),
-    protein_g       NUMERIC(6,2) CHECK (protein_g >= 0),
-    carbs_g         NUMERIC(6,2) CHECK (carbs_g >= 0),
-    fat_g           NUMERIC(6,2) CHECK (fat_g >= 0),
-    fiber_g         NUMERIC(6,2) CHECK (fiber_g >= 0),
-    sugar_g         NUMERIC(6,2) CHECK (sugar_g >= 0),
-    sodium_mg       NUMERIC(7,2) CHECK (sodium_mg >= 0),
-    cholesterol_mg  NUMERIC(7,2) CHECK (cholesterol_mg >= 0),
-    serving_size_g  NUMERIC(6,2) CHECK (serving_size_g > 0),
-    ingested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (source, external_id)
-);
-
 COMMENT ON TABLE food_items IS 'Catalogue des aliments et de leurs valeurs nutritionnelles, alimenté par l''ETL nutrition.';
 COMMENT ON COLUMN food_items.food_item_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN food_items.external_id IS 'Identifiant de l''aliment dans la source d''origine (ex. identifiant du dataset). Combiné à `source`, sert de clé d''upsert idempotent (UNIQUE(source, external_id)) : ré-exécuter l''ETL met à jour la ligne existante au lieu de la dupliquer. Pas un champ obsolète.';
@@ -64,19 +48,6 @@ COMMENT ON COLUMN food_items.sodium_mg IS 'Sodium (mg).';
 COMMENT ON COLUMN food_items.cholesterol_mg IS 'Cholestérol alimentaire (mg) — à ne pas confondre avec le cholestérol sanguin de medical_profiles.cholesterol_mg_dl.';
 COMMENT ON COLUMN food_items.serving_size_g IS 'Taille de la portion de référence (g), si connue dans la source.';
 COMMENT ON COLUMN food_items.ingested_at IS 'Date d''ingestion de la ligne par l''ETL.';
-
-CREATE TABLE nutrition_logs (
-    log_id          BIGSERIAL PRIMARY KEY,
-    user_id         INTEGER NOT NULL,
-    food_item_id    INTEGER NOT NULL,
-    quantity_g      NUMERIC(6,2) NOT NULL CHECK (quantity_g > 0),
-    meal_type       VARCHAR(20) NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
-    logged_at       TIMESTAMPTZ NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fk_nutrition_logs_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT fk_nutrition_logs_food_item FOREIGN KEY (food_item_id) REFERENCES food_items(food_item_id) ON DELETE RESTRICT
-);
-
 COMMENT ON TABLE nutrition_logs IS 'Journal des repas consommés par les utilisateurs (une ligne = un aliment consommé lors d''un repas).';
 COMMENT ON COLUMN nutrition_logs.log_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN nutrition_logs.user_id IS 'Utilisateur ayant consommé l''aliment (FK users).';
@@ -85,21 +56,6 @@ COMMENT ON COLUMN nutrition_logs.quantity_g IS 'Quantité consommée (g).';
 COMMENT ON COLUMN nutrition_logs.meal_type IS 'Type de repas : breakfast, lunch, dinner ou snack.';
 COMMENT ON COLUMN nutrition_logs.logged_at IS 'Date/heure du repas.';
 COMMENT ON COLUMN nutrition_logs.created_at IS 'Date d''enregistrement de la ligne en base.';
-
-CREATE TABLE exercises (
-    exercise_id     SERIAL PRIMARY KEY,
-    external_id     VARCHAR(100),
-    source          VARCHAR(50) NOT NULL DEFAULT 'exercisedb',
-    name            VARCHAR(255) NOT NULL,
-    body_part       VARCHAR(100),
-    target_muscle   VARCHAR(100),
-    equipment       VARCHAR(100),
-    gif_url         TEXT,
-    instructions    TEXT,
-    ingested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (source, external_id)
-);
-
 COMMENT ON TABLE exercises IS 'Catalogue des exercices physiques, alimenté par l''ETL exercises (source oss.exercisedb.dev).';
 COMMENT ON COLUMN exercises.exercise_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN exercises.external_id IS 'Identifiant de l''exercice dans la source d''origine (ex. exerciseId ExerciseDB). Combiné à `source`, sert de clé d''upsert idempotent (UNIQUE(source, external_id)) : ré-exécuter l''ETL met à jour la ligne existante au lieu de la dupliquer. Pas un champ obsolète.';
@@ -111,20 +67,6 @@ COMMENT ON COLUMN exercises.equipment IS 'Équipement nécessaire (ex. ''body we
 COMMENT ON COLUMN exercises.gif_url IS 'URL de l''animation/gif de démonstration.';
 COMMENT ON COLUMN exercises.instructions IS 'Instructions d''exécution (une étape par ligne).';
 COMMENT ON COLUMN exercises.ingested_at IS 'Date d''ingestion de la ligne par l''ETL.';
-
-CREATE TABLE workout_sessions (
-    session_id      BIGSERIAL PRIMARY KEY,
-    user_id         INTEGER NOT NULL,
-    started_at      TIMESTAMPTZ NOT NULL,
-    ended_at        TIMESTAMPTZ,
-    max_bpm         SMALLINT CHECK (max_bpm > 0),
-    avg_bpm         SMALLINT CHECK (avg_bpm > 0),
-    notes           TEXT,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (ended_at IS NULL OR ended_at >= started_at),
-    CONSTRAINT fk_workout_sessions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
-
 COMMENT ON TABLE workout_sessions IS 'Séances d''entraînement réalisées par les utilisateurs.';
 COMMENT ON COLUMN workout_sessions.session_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN workout_sessions.user_id IS 'Utilisateur ayant réalisé la séance (FK users).';
@@ -134,21 +76,6 @@ COMMENT ON COLUMN workout_sessions.max_bpm IS 'Fréquence cardiaque maximale obs
 COMMENT ON COLUMN workout_sessions.avg_bpm IS 'Fréquence cardiaque moyenne observée pendant la séance (battements/min).';
 COMMENT ON COLUMN workout_sessions.notes IS 'Notes libres sur la séance.';
 COMMENT ON COLUMN workout_sessions.created_at IS 'Date d''enregistrement de la ligne en base.';
-
-CREATE TABLE workout_sets (
-    set_id           BIGSERIAL PRIMARY KEY,
-    session_id       BIGINT NOT NULL,
-    exercise_id      INTEGER NOT NULL,
-    set_number       SMALLINT NOT NULL CHECK (set_number > 0),
-    reps             SMALLINT CHECK (reps >= 0),
-    weight_kg        NUMERIC(6,2) CHECK (weight_kg >= 0),
-    duration_seconds INTEGER CHECK (duration_seconds >= 0),
-    distance_m       NUMERIC(8,2) CHECK (distance_m >= 0),
-    UNIQUE (session_id, exercise_id, set_number),
-    CONSTRAINT fk_workout_sets_session FOREIGN KEY (session_id) REFERENCES workout_sessions(session_id) ON DELETE CASCADE,
-    CONSTRAINT fk_workout_sets_exercise FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id) ON DELETE RESTRICT
-);
-
 COMMENT ON TABLE workout_sets IS 'Séries d''exercices réalisées au sein d''une séance — résout l''association N,N entre workout_sessions et exercises (cf. modele_donnees.md, "Note de conception : pourquoi WORKOUT_SETS").';
 COMMENT ON COLUMN workout_sets.set_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN workout_sets.session_id IS 'Séance à laquelle appartient la série (FK workout_sessions).';
@@ -158,22 +85,6 @@ COMMENT ON COLUMN workout_sets.reps IS 'Nombre de répétitions effectuées.';
 COMMENT ON COLUMN workout_sets.weight_kg IS 'Charge utilisée (kg), si applicable.';
 COMMENT ON COLUMN workout_sets.duration_seconds IS 'Durée de la série (s), pour les exercices chronométrés.';
 COMMENT ON COLUMN workout_sets.distance_m IS 'Distance parcourue (m), pour les exercices de cardio/déplacement.';
-
-CREATE TABLE biometric_measurements (
-    measurement_id      BIGSERIAL PRIMARY KEY,
-    user_id             INTEGER NOT NULL,
-    measured_at         TIMESTAMPTZ NOT NULL,
-    weight_kg           NUMERIC(5,2) CHECK (weight_kg > 0),
-    height_cm           NUMERIC(5,2) CHECK (height_cm > 0),
-    body_fat_pct        NUMERIC(4,2) CHECK (body_fat_pct BETWEEN 0 AND 100),
-    muscle_mass_kg      NUMERIC(5,2) CHECK (muscle_mass_kg >= 0),
-    resting_heart_rate  SMALLINT CHECK (resting_heart_rate > 0),
-    source              VARCHAR(50) NOT NULL DEFAULT 'manual',
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id, measured_at),
-    CONSTRAINT fk_biometric_measurements_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
-
 COMMENT ON TABLE biometric_measurements IS 'Relevés biométriques des utilisateurs dans le temps (poids, taille, composition corporelle...).';
 COMMENT ON COLUMN biometric_measurements.measurement_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN biometric_measurements.user_id IS 'Utilisateur concerné (FK users).';
@@ -185,21 +96,6 @@ COMMENT ON COLUMN biometric_measurements.muscle_mass_kg IS 'Masse musculaire (kg
 COMMENT ON COLUMN biometric_measurements.resting_heart_rate IS 'Fréquence cardiaque au repos (battements/min).';
 COMMENT ON COLUMN biometric_measurements.source IS 'Origine du relevé : ''manual'' (saisie utilisateur) ou nom de la source d''import (ex. ''kaggle_gym_members'').';
 COMMENT ON COLUMN biometric_measurements.created_at IS 'Date d''enregistrement de la ligne en base.';
-
--- Historique clinique (1 utilisateur -> N relevés dans le temps, même
--- pattern que biometric_measurements)
-CREATE TABLE medical_profiles (
-    medical_profile_id  BIGSERIAL PRIMARY KEY,
-    user_id             INTEGER NOT NULL,
-    disease_type        VARCHAR(100),
-    severity            VARCHAR(20) CHECK (severity IN ('Mild', 'Moderate', 'Severe')),
-    cholesterol_mg_dl   NUMERIC(6,2) CHECK (cholesterol_mg_dl >= 0),
-    blood_pressure_mmhg NUMERIC(5,2) CHECK (blood_pressure_mmhg >= 0),
-    glucose_mg_dl       NUMERIC(6,2) CHECK (glucose_mg_dl >= 0),
-    recorded_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fk_medical_profiles_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
-
 COMMENT ON TABLE medical_profiles IS 'Historique du profil médical déclaré par l''utilisateur (une ligne par relevé dans le temps).';
 COMMENT ON COLUMN medical_profiles.medical_profile_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN medical_profiles.user_id IS 'Utilisateur concerné (FK users).';
@@ -209,18 +105,6 @@ COMMENT ON COLUMN medical_profiles.cholesterol_mg_dl IS 'Cholestérol sanguin (m
 COMMENT ON COLUMN medical_profiles.blood_pressure_mmhg IS 'Tension artérielle (mmHg), valeur unique : la source ne distingue pas systolique/diastolique (cf. modele_donnees.md).';
 COMMENT ON COLUMN medical_profiles.glucose_mg_dl IS 'Glycémie (mg/dL).';
 COMMENT ON COLUMN medical_profiles.recorded_at IS 'Date du relevé.';
-
--- Préférences alimentaires déclarées (historisées pour suivre les changements)
-CREATE TABLE dietary_preferences (
-    dietary_preference_id  BIGSERIAL PRIMARY KEY,
-    user_id                 INTEGER NOT NULL,
-    dietary_restrictions    VARCHAR(255),
-    allergies               VARCHAR(255),
-    preferred_cuisine       VARCHAR(100),
-    recorded_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fk_dietary_preferences_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
-
 COMMENT ON TABLE dietary_preferences IS 'Historique des préférences alimentaires déclarées par l''utilisateur.';
 COMMENT ON COLUMN dietary_preferences.dietary_preference_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN dietary_preferences.user_id IS 'Utilisateur concerné (FK users).';
@@ -228,20 +112,6 @@ COMMENT ON COLUMN dietary_preferences.dietary_restrictions IS 'Restriction alime
 COMMENT ON COLUMN dietary_preferences.allergies IS 'Allergie déclarée (ex. ''Peanuts'', ''None'').';
 COMMENT ON COLUMN dietary_preferences.preferred_cuisine IS 'Type de cuisine préféré (ex. ''Mexican'').';
 COMMENT ON COLUMN dietary_preferences.recorded_at IS 'Date de la déclaration.';
-
--- Auto-évaluation du niveau d'activité/forme (distinct des faits mesurés
--- dans workout_sessions/workout_sets)
-CREATE TABLE fitness_profiles (
-    fitness_profile_id              BIGSERIAL PRIMARY KEY,
-    user_id                         INTEGER NOT NULL,
-    physical_activity_level         VARCHAR(20),
-    workout_frequency_days_per_week SMALLINT CHECK (workout_frequency_days_per_week BETWEEN 0 AND 7),
-    experience_level                VARCHAR(20),
-    weekly_exercise_hours           NUMERIC(5,2) CHECK (weekly_exercise_hours >= 0),
-    recorded_at                     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fk_fitness_profiles_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
-
 COMMENT ON TABLE fitness_profiles IS 'Auto-évaluation du niveau d''activité/forme physique de l''utilisateur dans le temps (distinct des faits mesurés dans workout_sessions/workout_sets).';
 COMMENT ON COLUMN fitness_profiles.fitness_profile_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN fitness_profiles.user_id IS 'Utilisateur concerné (FK users).';
@@ -250,20 +120,6 @@ COMMENT ON COLUMN fitness_profiles.workout_frequency_days_per_week IS 'Fréquenc
 COMMENT ON COLUMN fitness_profiles.experience_level IS 'Niveau d''expérience sportive déclaré.';
 COMMENT ON COLUMN fitness_profiles.weekly_exercise_hours IS 'Heures d''exercice hebdomadaires déclarées.';
 COMMENT ON COLUMN fitness_profiles.recorded_at IS 'Date de la déclaration.';
-
--- Sortie du moteur de recommandation diététique (1 utilisateur -> N
--- recommandations générées dans le temps)
-CREATE TABLE diet_recommendations (
-    diet_recommendation_id           BIGSERIAL PRIMARY KEY,
-    user_id                          INTEGER NOT NULL,
-    daily_caloric_intake_kcal        NUMERIC(7,2) CHECK (daily_caloric_intake_kcal >= 0),
-    adherence_to_diet_plan_pct       NUMERIC(5,2) CHECK (adherence_to_diet_plan_pct BETWEEN 0 AND 100),
-    dietary_nutrient_imbalance_score NUMERIC(6,2),
-    recommendation                   VARCHAR(50),
-    recommended_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fk_diet_recommendations_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-);
-
 COMMENT ON TABLE diet_recommendations IS 'Recommandations diététiques générées pour l''utilisateur (sortie d''un moteur de recommandation), historisées dans le temps.';
 COMMENT ON COLUMN diet_recommendations.diet_recommendation_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN diet_recommendations.user_id IS 'Utilisateur concerné (FK users).';
@@ -272,24 +128,6 @@ COMMENT ON COLUMN diet_recommendations.adherence_to_diet_plan_pct IS 'Taux d''ad
 COMMENT ON COLUMN diet_recommendations.dietary_nutrient_imbalance_score IS 'Score de déséquilibre nutritionnel calculé.';
 COMMENT ON COLUMN diet_recommendations.recommendation IS 'Recommandation émise (ex. ''Balanced'', ''Low_Carb'', ''Low_Sodium'').';
 COMMENT ON COLUMN diet_recommendations.recommended_at IS 'Date de génération de la recommandation.';
-
-CREATE TABLE data_quality_log (
-    dq_log_id         BIGSERIAL PRIMARY KEY,
-    source_table      VARCHAR(100) NOT NULL,
-    source_record_id  VARCHAR(100),
-    dag_id            VARCHAR(150),
-    rule_name         VARCHAR(150) NOT NULL,
-    severity          VARCHAR(20) NOT NULL CHECK (severity IN ('info', 'warning', 'error', 'critical')),
-    message           TEXT NOT NULL,
-    detected_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    resolved          BOOLEAN NOT NULL DEFAULT FALSE,
-    resolved_at       TIMESTAMPTZ,
-    resolved_by       INTEGER,
-    CONSTRAINT fk_data_quality_log_resolved_by FOREIGN KEY (resolved_by) REFERENCES users(user_id) ON DELETE SET NULL,
-    CONSTRAINT chk_data_quality_log_resolution_consistency
-        CHECK (resolved = TRUE OR (resolved_at IS NULL AND resolved_by IS NULL))
-);
-
 COMMENT ON TABLE data_quality_log IS 'Journal des anomalies de qualité détectées par l''ETL, consultées et corrigées via l''interface admin (Sprint 5).';
 COMMENT ON COLUMN data_quality_log.dq_log_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN data_quality_log.source_table IS 'Table concernée par l''anomalie, en texte libre (pas de FK stricte) : doit pouvoir référencer n''importe quelle table ingérée par l''ETL sans contrainte de schéma (cf. modele_donnees.md).';
@@ -302,13 +140,136 @@ COMMENT ON COLUMN data_quality_log.detected_at IS 'Date de détection.';
 COMMENT ON COLUMN data_quality_log.resolved IS 'Vrai si l''anomalie a été traitée.';
 COMMENT ON COLUMN data_quality_log.resolved_at IS 'Date de résolution — renseignée uniquement si resolved = TRUE (cf. contrainte chk_data_quality_log_resolution_consistency).';
 COMMENT ON COLUMN data_quality_log.resolved_by IS 'Administrateur ayant résolu l''anomalie (FK users, optionnelle).';
+"""
 
--- Index utiles pour les requêtes fréquentes (filtrage/tri par utilisateur + temps)
-CREATE INDEX idx_nutrition_logs_user_logged_at ON nutrition_logs (user_id, logged_at);
-CREATE INDEX idx_workout_sessions_user_started_at ON workout_sessions (user_id, started_at);
-CREATE INDEX idx_biometric_measurements_user_measured_at ON biometric_measurements (user_id, measured_at);
-CREATE INDEX idx_medical_profiles_user_recorded_at ON medical_profiles (user_id, recorded_at);
-CREATE INDEX idx_dietary_preferences_user_recorded_at ON dietary_preferences (user_id, recorded_at);
-CREATE INDEX idx_fitness_profiles_user_recorded_at ON fitness_profiles (user_id, recorded_at);
-CREATE INDEX idx_diet_recommendations_user_recommended_at ON diet_recommendations (user_id, recommended_at);
-CREATE INDEX idx_data_quality_log_unresolved ON data_quality_log (resolved) WHERE resolved = FALSE;
+DOWNGRADE_SQL = """
+COMMENT ON TABLE users IS NULL;
+COMMENT ON COLUMN users.user_id IS NULL;
+COMMENT ON COLUMN users.email IS NULL;
+COMMENT ON COLUMN users.hashed_password IS NULL;
+COMMENT ON COLUMN users.first_name IS NULL;
+COMMENT ON COLUMN users.last_name IS NULL;
+COMMENT ON COLUMN users.date_of_birth IS NULL;
+COMMENT ON COLUMN users.sex IS NULL;
+COMMENT ON COLUMN users.is_admin IS NULL;
+COMMENT ON COLUMN users.created_at IS NULL;
+COMMENT ON COLUMN users.updated_at IS NULL;
+COMMENT ON TABLE food_items IS NULL;
+COMMENT ON COLUMN food_items.food_item_id IS NULL;
+COMMENT ON COLUMN food_items.external_id IS NULL;
+COMMENT ON COLUMN food_items.source IS NULL;
+COMMENT ON COLUMN food_items.name IS NULL;
+COMMENT ON COLUMN food_items.brand IS NULL;
+COMMENT ON COLUMN food_items.calories_kcal IS NULL;
+COMMENT ON COLUMN food_items.protein_g IS NULL;
+COMMENT ON COLUMN food_items.carbs_g IS NULL;
+COMMENT ON COLUMN food_items.fat_g IS NULL;
+COMMENT ON COLUMN food_items.fiber_g IS NULL;
+COMMENT ON COLUMN food_items.sugar_g IS NULL;
+COMMENT ON COLUMN food_items.sodium_mg IS NULL;
+COMMENT ON COLUMN food_items.cholesterol_mg IS NULL;
+COMMENT ON COLUMN food_items.serving_size_g IS NULL;
+COMMENT ON COLUMN food_items.ingested_at IS NULL;
+COMMENT ON TABLE nutrition_logs IS NULL;
+COMMENT ON COLUMN nutrition_logs.log_id IS NULL;
+COMMENT ON COLUMN nutrition_logs.user_id IS NULL;
+COMMENT ON COLUMN nutrition_logs.food_item_id IS NULL;
+COMMENT ON COLUMN nutrition_logs.quantity_g IS NULL;
+COMMENT ON COLUMN nutrition_logs.meal_type IS NULL;
+COMMENT ON COLUMN nutrition_logs.logged_at IS NULL;
+COMMENT ON COLUMN nutrition_logs.created_at IS NULL;
+COMMENT ON TABLE exercises IS NULL;
+COMMENT ON COLUMN exercises.exercise_id IS NULL;
+COMMENT ON COLUMN exercises.external_id IS NULL;
+COMMENT ON COLUMN exercises.source IS NULL;
+COMMENT ON COLUMN exercises.name IS NULL;
+COMMENT ON COLUMN exercises.body_part IS NULL;
+COMMENT ON COLUMN exercises.target_muscle IS NULL;
+COMMENT ON COLUMN exercises.equipment IS NULL;
+COMMENT ON COLUMN exercises.gif_url IS NULL;
+COMMENT ON COLUMN exercises.instructions IS NULL;
+COMMENT ON COLUMN exercises.ingested_at IS NULL;
+COMMENT ON TABLE workout_sessions IS NULL;
+COMMENT ON COLUMN workout_sessions.session_id IS NULL;
+COMMENT ON COLUMN workout_sessions.user_id IS NULL;
+COMMENT ON COLUMN workout_sessions.started_at IS NULL;
+COMMENT ON COLUMN workout_sessions.ended_at IS NULL;
+COMMENT ON COLUMN workout_sessions.max_bpm IS NULL;
+COMMENT ON COLUMN workout_sessions.avg_bpm IS NULL;
+COMMENT ON COLUMN workout_sessions.notes IS NULL;
+COMMENT ON COLUMN workout_sessions.created_at IS NULL;
+COMMENT ON TABLE workout_sets IS NULL;
+COMMENT ON COLUMN workout_sets.set_id IS NULL;
+COMMENT ON COLUMN workout_sets.session_id IS NULL;
+COMMENT ON COLUMN workout_sets.exercise_id IS NULL;
+COMMENT ON COLUMN workout_sets.set_number IS NULL;
+COMMENT ON COLUMN workout_sets.reps IS NULL;
+COMMENT ON COLUMN workout_sets.weight_kg IS NULL;
+COMMENT ON COLUMN workout_sets.duration_seconds IS NULL;
+COMMENT ON COLUMN workout_sets.distance_m IS NULL;
+COMMENT ON TABLE biometric_measurements IS NULL;
+COMMENT ON COLUMN biometric_measurements.measurement_id IS NULL;
+COMMENT ON COLUMN biometric_measurements.user_id IS NULL;
+COMMENT ON COLUMN biometric_measurements.measured_at IS NULL;
+COMMENT ON COLUMN biometric_measurements.weight_kg IS NULL;
+COMMENT ON COLUMN biometric_measurements.height_cm IS NULL;
+COMMENT ON COLUMN biometric_measurements.body_fat_pct IS NULL;
+COMMENT ON COLUMN biometric_measurements.muscle_mass_kg IS NULL;
+COMMENT ON COLUMN biometric_measurements.resting_heart_rate IS NULL;
+COMMENT ON COLUMN biometric_measurements.source IS NULL;
+COMMENT ON COLUMN biometric_measurements.created_at IS NULL;
+COMMENT ON TABLE medical_profiles IS NULL;
+COMMENT ON COLUMN medical_profiles.medical_profile_id IS NULL;
+COMMENT ON COLUMN medical_profiles.user_id IS NULL;
+COMMENT ON COLUMN medical_profiles.disease_type IS NULL;
+COMMENT ON COLUMN medical_profiles.severity IS NULL;
+COMMENT ON COLUMN medical_profiles.cholesterol_mg_dl IS NULL;
+COMMENT ON COLUMN medical_profiles.blood_pressure_mmhg IS NULL;
+COMMENT ON COLUMN medical_profiles.glucose_mg_dl IS NULL;
+COMMENT ON COLUMN medical_profiles.recorded_at IS NULL;
+COMMENT ON TABLE dietary_preferences IS NULL;
+COMMENT ON COLUMN dietary_preferences.dietary_preference_id IS NULL;
+COMMENT ON COLUMN dietary_preferences.user_id IS NULL;
+COMMENT ON COLUMN dietary_preferences.dietary_restrictions IS NULL;
+COMMENT ON COLUMN dietary_preferences.allergies IS NULL;
+COMMENT ON COLUMN dietary_preferences.preferred_cuisine IS NULL;
+COMMENT ON COLUMN dietary_preferences.recorded_at IS NULL;
+COMMENT ON TABLE fitness_profiles IS NULL;
+COMMENT ON COLUMN fitness_profiles.fitness_profile_id IS NULL;
+COMMENT ON COLUMN fitness_profiles.user_id IS NULL;
+COMMENT ON COLUMN fitness_profiles.physical_activity_level IS NULL;
+COMMENT ON COLUMN fitness_profiles.workout_frequency_days_per_week IS NULL;
+COMMENT ON COLUMN fitness_profiles.experience_level IS NULL;
+COMMENT ON COLUMN fitness_profiles.weekly_exercise_hours IS NULL;
+COMMENT ON COLUMN fitness_profiles.recorded_at IS NULL;
+COMMENT ON TABLE diet_recommendations IS NULL;
+COMMENT ON COLUMN diet_recommendations.diet_recommendation_id IS NULL;
+COMMENT ON COLUMN diet_recommendations.user_id IS NULL;
+COMMENT ON COLUMN diet_recommendations.daily_caloric_intake_kcal IS NULL;
+COMMENT ON COLUMN diet_recommendations.adherence_to_diet_plan_pct IS NULL;
+COMMENT ON COLUMN diet_recommendations.dietary_nutrient_imbalance_score IS NULL;
+COMMENT ON COLUMN diet_recommendations.recommendation IS NULL;
+COMMENT ON COLUMN diet_recommendations.recommended_at IS NULL;
+COMMENT ON TABLE data_quality_log IS NULL;
+COMMENT ON COLUMN data_quality_log.dq_log_id IS NULL;
+COMMENT ON COLUMN data_quality_log.source_table IS NULL;
+COMMENT ON COLUMN data_quality_log.source_record_id IS NULL;
+COMMENT ON COLUMN data_quality_log.dag_id IS NULL;
+COMMENT ON COLUMN data_quality_log.rule_name IS NULL;
+COMMENT ON COLUMN data_quality_log.severity IS NULL;
+COMMENT ON COLUMN data_quality_log.message IS NULL;
+COMMENT ON COLUMN data_quality_log.detected_at IS NULL;
+COMMENT ON COLUMN data_quality_log.resolved IS NULL;
+COMMENT ON COLUMN data_quality_log.resolved_at IS NULL;
+COMMENT ON COLUMN data_quality_log.resolved_by IS NULL;
+"""
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    op.execute(UPGRADE_SQL)
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.execute(DOWNGRADE_SQL)
