@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 
 def clean_diet():
     df_diet = pd.read_csv("etl/data/diet.csv", sep =",")
@@ -8,5 +7,4 @@ def clean_diet():
     col_string = df_diet.select_dtypes(include="string").columns
     df_diet[col_string] = df_diet[col_string].fillna("None")
     return df_diet
-
 

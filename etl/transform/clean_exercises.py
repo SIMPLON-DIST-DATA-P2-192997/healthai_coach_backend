@@ -7,5 +7,6 @@ def clean_exercices():
         df_exerices = pd.DataFrame(data)
         cols = ["bodyParts", "equipments", "targetMuscles"]
         for col in cols:
-            df_exerices[col] = df_exerices[col].apply("".join)
+            df_exerices[col] = df_exerices[col].apply(" ".join)
+        df_exerices["instructions"] = df_exerices["instructions"].apply("\n".join)
         return df_exerices
