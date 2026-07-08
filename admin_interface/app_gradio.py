@@ -160,6 +160,7 @@ def build_app():
                     label="Identifiant de l'anomalie (dq_log_id)",
                     info="Numéro affiché dans la colonne 'dq_log_id' du tableau ci-dessus.",
                     precision=0,
+                    minimum=1,
                 )
                 admin_dropdown = gr.Dropdown(
                     choices=admin_choices,
