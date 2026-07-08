@@ -89,6 +89,8 @@ Les datasets Kaggle (diet_recommendations, gym_members...) ne contiennent aucun 
 
 À l'inverse, les nouveaux utilisateurs créés via le frontend passent toujours par `POST /api/v1/auth/register` (`password` en clair dans la requête, hashé côté API par `hash_password()` — cf. `api/security/security.py`). Personne ne doit jamais écrire directement dans `hashed_password` à la main.
 
+**`first_name`/`last_name`** : les datasets `diet-recommendations` et `gym-members` n'ont jamais eu de champ nom (uniquement `Patient_ID`/âge/genre — anonymisé par construction dans la source, pas une donnée manquante à corriger). Ces deux colonnes sont `NOT NULL` dans le schéma, donc il faut bien produire une valeur. Décision : utiliser la librairie `Faker` (Python) pour générer un nom plausible, **avec une seed déterministe par ligne source** (ex. `Faker.seed(hash(patient_id))` ou équivalent), pas un tirage aléatoire à chaque exécution — sinon un même utilisateur changerait de prénom/nom à chaque ré-exécution de l'ETL, ce qui casse la logique d'idempotence attendue par ailleurs (cf. section suivante). Sans enjeu de véracité ici contrairement à `food_items.name` (qui, lui, existe bien dans la source et ne doit jamais être fabriqué) : ces `users` sont déjà des profils de référence non-authentifiants, un nom Faker stable ne fait qu'améliorer le réalisme d'affichage sans rien casser en aval.
+
 ---
 
 ## SPRINT 3 — Orchestration Airflow
