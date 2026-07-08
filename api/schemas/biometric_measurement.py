@@ -1,15 +1,15 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BiometricMeasurementBase(BaseModel):
     measured_at: datetime
-    weight_kg: float | None = None
-    height_cm: float | None = None
-    body_fat_pct: float | None = None
-    muscle_mass_kg: float | None = None
-    resting_heart_rate: int | None = None
+    weight_kg: float | None = Field(default=None, gt=0)
+    height_cm: float | None = Field(default=None, gt=0)
+    body_fat_pct: float | None = Field(default=None, ge=0, le=100)
+    muscle_mass_kg: float | None = Field(default=None, ge=0)
+    resting_heart_rate: int | None = Field(default=None, gt=0)
     source: str | None = None
 
 
@@ -18,11 +18,11 @@ class BiometricMeasurementCreate(BiometricMeasurementBase):
 
 
 class BiometricMeasurementUpdate(BaseModel):
-    weight_kg: float | None = None
-    height_cm: float | None = None
-    body_fat_pct: float | None = None
-    muscle_mass_kg: float | None = None
-    resting_heart_rate: int | None = None
+    weight_kg: float | None = Field(default=None, gt=0)
+    height_cm: float | None = Field(default=None, gt=0)
+    body_fat_pct: float | None = Field(default=None, ge=0, le=100)
+    muscle_mass_kg: float | None = Field(default=None, ge=0)
+    resting_heart_rate: int | None = Field(default=None, gt=0)
     source: str | None = None
 
 

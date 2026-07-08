@@ -15,7 +15,10 @@ def get_exercises(db: Session, skip: int = 0, limit: int = 100) -> List[Exercise
 
 
 def create_exercise(db: Session, exercise_in: ExerciseCreate) -> Exercise:
-    exercise = Exercise(**exercise_in.model_dump())
+    data = exercise_in.model_dump()
+    if data.get("source") is None:
+        data["source"] = "exercisedb"
+    exercise = Exercise(**data)
     db.add(exercise)
     db.commit()
     db.refresh(exercise)

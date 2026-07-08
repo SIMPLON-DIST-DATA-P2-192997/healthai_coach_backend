@@ -1,22 +1,22 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FoodItemBase(BaseModel):
     external_id: str | None = None
-    source: str | None = None
+    source: str
     name: str
     brand: str | None = None
-    calories_kcal: float | None = None
-    protein_g: float | None = None
-    carbs_g: float | None = None
-    fat_g: float | None = None
-    fiber_g: float | None = None
-    sugar_g: float | None = None
-    sodium_mg: float | None = None
-    cholesterol_mg: float | None = None
-    serving_size_g: float | None = None
+    calories_kcal: float = Field(ge=0)
+    protein_g: float | None = Field(default=None, ge=0)
+    carbs_g: float | None = Field(default=None, ge=0)
+    fat_g: float | None = Field(default=None, ge=0)
+    fiber_g: float | None = Field(default=None, ge=0)
+    sugar_g: float | None = Field(default=None, ge=0)
+    sodium_mg: float | None = Field(default=None, ge=0)
+    cholesterol_mg: float | None = Field(default=None, ge=0)
+    serving_size_g: float | None = Field(default=None, gt=0)
 
 
 class FoodItemCreate(FoodItemBase):
@@ -26,15 +26,15 @@ class FoodItemCreate(FoodItemBase):
 class FoodItemUpdate(BaseModel):
     name: str | None = None
     brand: str | None = None
-    calories_kcal: float | None = None
-    protein_g: float | None = None
-    carbs_g: float | None = None
-    fat_g: float | None = None
-    fiber_g: float | None = None
-    sugar_g: float | None = None
-    sodium_mg: float | None = None
-    cholesterol_mg: float | None = None
-    serving_size_g: float | None = None
+    calories_kcal: float | None = Field(default=None, ge=0)
+    protein_g: float | None = Field(default=None, ge=0)
+    carbs_g: float | None = Field(default=None, ge=0)
+    fat_g: float | None = Field(default=None, ge=0)
+    fiber_g: float | None = Field(default=None, ge=0)
+    sugar_g: float | None = Field(default=None, ge=0)
+    sodium_mg: float | None = Field(default=None, ge=0)
+    cholesterol_mg: float | None = Field(default=None, ge=0)
+    serving_size_g: float | None = Field(default=None, gt=0)
 
 
 class FoodItemRead(FoodItemBase):

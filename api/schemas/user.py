@@ -1,6 +1,9 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr
+
+Sex = Literal["F", "M", "other"]
 
 
 # ---------------------------------------------------------------------------
@@ -9,10 +12,10 @@ from pydantic import BaseModel, EmailStr
 
 class UserBase(BaseModel):
     email: EmailStr
-    first_name: str | None = None
-    last_name: str | None = None
+    first_name: str
+    last_name: str
     date_of_birth: date | None = None
-    sex: str | None = None
+    sex: Sex | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +31,7 @@ class UserUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     date_of_birth: date | None = None
-    sex: str | None = None
+    sex: Sex | None = None
     email: EmailStr | None = None
 
 

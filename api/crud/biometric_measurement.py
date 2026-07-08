@@ -22,7 +22,10 @@ def get_measurements_by_user(db: Session, user_id: int, skip: int = 0, limit: in
 
 
 def create_measurement(db: Session, user_id: int, measurement_in: BiometricMeasurementCreate) -> BiometricMeasurement:
-    measurement = BiometricMeasurement(user_id=user_id, **measurement_in.model_dump())
+    data = measurement_in.model_dump()
+    if data.get("source") is None:
+        data["source"] = "manual"
+    measurement = BiometricMeasurement(user_id=user_id, **data)
     db.add(measurement)
     db.commit()
     db.refresh(measurement)

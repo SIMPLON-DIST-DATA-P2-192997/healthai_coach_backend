@@ -1,6 +1,9 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
+
+Severity = Literal["info", "warning", "error", "critical"]
 
 
 class DataQualityLogBase(BaseModel):
@@ -8,8 +11,8 @@ class DataQualityLogBase(BaseModel):
     source_record_id: str | None = None
     dag_id: str | None = None
     rule_name: str
-    severity: str
-    message: str | None = None
+    severity: Severity
+    message: str
 
 
 class DataQualityLogCreate(DataQualityLogBase):

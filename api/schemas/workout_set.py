@@ -1,13 +1,13 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class WorkoutSetBase(BaseModel):
     exercise_id: int
-    set_number: int | None = None
-    reps: int | None = None
-    weight_kg: float | None = None
-    duration_seconds: int | None = None
-    distance_m: float | None = None
+    set_number: int = Field(gt=0)
+    reps: int | None = Field(default=None, ge=0)
+    weight_kg: float | None = Field(default=None, ge=0)
+    duration_seconds: int | None = Field(default=None, ge=0)
+    distance_m: float | None = Field(default=None, ge=0)
 
 
 class WorkoutSetCreate(WorkoutSetBase):
@@ -15,11 +15,11 @@ class WorkoutSetCreate(WorkoutSetBase):
 
 
 class WorkoutSetUpdate(BaseModel):
-    set_number: int | None = None
-    reps: int | None = None
-    weight_kg: float | None = None
-    duration_seconds: int | None = None
-    distance_m: float | None = None
+    set_number: int | None = Field(default=None, gt=0)
+    reps: int | None = Field(default=None, ge=0)
+    weight_kg: float | None = Field(default=None, ge=0)
+    duration_seconds: int | None = Field(default=None, ge=0)
+    distance_m: float | None = Field(default=None, ge=0)
 
 
 class WorkoutSetRead(WorkoutSetBase):

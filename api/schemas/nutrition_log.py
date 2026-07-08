@@ -1,12 +1,15 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+MealType = Literal["breakfast", "lunch", "dinner", "snack"]
 
 
 class NutritionLogBase(BaseModel):
     food_item_id: int
-    quantity_g: float
-    meal_type: str | None = None
+    quantity_g: float = Field(gt=0)
+    meal_type: MealType
     logged_at: datetime | None = None
 
 
@@ -15,8 +18,8 @@ class NutritionLogCreate(NutritionLogBase):
 
 
 class NutritionLogUpdate(BaseModel):
-    quantity_g: float | None = None
-    meal_type: str | None = None
+    quantity_g: float | None = Field(default=None, gt=0)
+    meal_type: MealType | None = None
     logged_at: datetime | None = None
 
 

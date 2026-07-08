@@ -1,14 +1,17 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+Severity = Literal["Mild", "Moderate", "Severe"]
 
 
 class MedicalProfileBase(BaseModel):
     disease_type: str | None = None
-    severity: str | None = None
-    cholesterol_mg_dl: float | None = None
-    blood_pressure_mmhg: float | None = None
-    glucose_mg_dl: float | None = None
+    severity: Severity | None = None
+    cholesterol_mg_dl: float | None = Field(default=None, ge=0)
+    blood_pressure_mmhg: float | None = Field(default=None, ge=0)
+    glucose_mg_dl: float | None = Field(default=None, ge=0)
     recorded_at: datetime
 
 
@@ -18,10 +21,10 @@ class MedicalProfileCreate(MedicalProfileBase):
 
 class MedicalProfileUpdate(BaseModel):
     disease_type: str | None = None
-    severity: str | None = None
-    cholesterol_mg_dl: float | None = None
-    blood_pressure_mmhg: float | None = None
-    glucose_mg_dl: float | None = None
+    severity: Severity | None = None
+    cholesterol_mg_dl: float | None = Field(default=None, ge=0)
+    blood_pressure_mmhg: float | None = Field(default=None, ge=0)
+    glucose_mg_dl: float | None = Field(default=None, ge=0)
 
 
 class MedicalProfileRead(MedicalProfileBase):
