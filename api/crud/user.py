@@ -3,6 +3,7 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from api.security.security import hash_password
+from api.crud.subscription import create_free_subscription
 from api.models.user import User
 from api.schemas.user import UserAdminUpdate, UserCreate, UserUpdate
 
@@ -34,6 +35,7 @@ def create_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+    create_free_subscription(db, user.id)  # type: ignore[arg-type]
     return user
 
 

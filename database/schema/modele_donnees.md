@@ -1,7 +1,7 @@
 # HealthAI Coach — Modèle de données (MCD / MLD / MPD)
 
-**Statut** : proposition initiale à valider par le Rôle A avant implémentation définitive (Sprint 1).
-**Périmètre couvert** : utilisateurs, nutrition, exercices, biométrie, profil médical, préférences alimentaires, profil de forme, recommandations diététiques, journal de qualité des données (cf. Sprints 1, 2, 3, 4).
+**Statut** : proposition initiale à valider par le Rôle A avant implémentation définitive (Sprint 1). Section `ORGANIZATIONS`/`SUBSCRIPTIONS` ajoutée ultérieurement pour le modèle économique (freemium/premium/premium+/B2B) — statut également proposition initiale.
+**Périmètre couvert** : utilisateurs, nutrition, exercices, biométrie, profil médical, préférences alimentaires, profil de forme, recommandations diététiques, journal de qualité des données, abonnements (cf. Sprints 1, 2, 3, 4).
 
 ---
 
@@ -22,6 +22,8 @@ erDiagram
     USERS ||--o{ FITNESS_PROFILES : "(0,n) s'auto-évalue (1,1)"
     USERS ||--o{ DIET_RECOMMENDATIONS : "(0,n) reçoit (1,1)"
     USERS |o--o{ DATA_QUALITY_LOG : "(0,n) résout (0,1)"
+    USERS ||--o{ SUBSCRIPTIONS : "(0,n) souscrit (1,1)"
+    ORGANIZATIONS |o--o{ SUBSCRIPTIONS : "(0,n) facture (0,1)"
 
     USERS {
         int user_id PK
@@ -116,11 +118,40 @@ erDiagram
         string severity
         bool resolved
     }
+    ORGANIZATIONS {
+        int organization_id PK
+        string name
+        string contact_email
+    }
+    SUBSCRIPTIONS {
+        bigint subscription_id PK
+        string tier
+        string status
+        int price_eur_cents
+        timestamp started_at
+        timestamp ended_at
+    }
 ```
 
 ### Note de conception : pourquoi `WORKOUT_SETS` ?
 
 `WORKOUT_SESSIONS` et `EXERCISES` sont conceptuellement en relation N,N : une séance comporte plusieurs exercices, un exercice apparaît dans plusieurs séances. Suivant la règle Merise de résolution des associations N,N, cette association devient sa propre table dans le MLD — c'est `WORKOUT_SETS`. Ce n'est pas une simple table de jonction technique : elle porte ses propres attributs (`set_number`, `reps`, `weight_kg`, `duration_seconds`, `distance_m`) qui ne peuvent appartenir ni à `WORKOUT_SESSIONS` seule (une séance a des reps/poids différents par exercice) ni à `EXERCISES` seule (le même exercice a des reps/poids différents selon la séance) — ce sont des attributs de l'association elle-même. Elle va même plus loin qu'une simple résolution N,N : la granularité réelle n'est pas "séance × exercice" mais "séance × exercice × numéro de série", pour tracer chaque série individuellement (progression des charges dans le temps).
+
+### Note de conception : modèle économique (`ORGANIZATIONS` / `SUBSCRIPTIONS`)
+
+Le modèle économique de HealthAI Coach est hybride : `free`, `premium` (9,99 €/mois),
+`premium+` (19,99 €/mois) pour les particuliers, et `b2b` pour la distribution en marque
+blanche (salles de sport, mutuelles, entreprises). `SUBSCRIPTIONS` suit le même pattern
+d'historisation que `MEDICAL_PROFILES`/`FITNESS_PROFILES` (1 utilisateur -> N souscriptions
+dans le temps) plutôt qu'un simple champ `tier` sur `USERS`, pour garder la trace des
+changements de palier (upgrade/downgrade/résiliation).
+
+`ORGANIZATIONS` est une entité séparée (et non un simple attribut sur `USERS`) car le lien
+"quel utilisateur est rattaché à quelle salle/mutuelle/entreprise" est porté par la
+souscription elle-même (`SUBSCRIPTIONS.organization_id`), pas par l'utilisateur en permanence :
+un utilisateur peut changer d'organisation (ex. changement d'employeur) sans perdre l'historique
+de ses souscriptions précédentes. La cardinalité `(0,1)` côté `ORGANIZATIONS` reflète que
+`organization_id` n'est renseigné que pour les souscriptions `tier = 'b2b'`.
 
 ### Points à valider avec le Rôle A
 
@@ -130,6 +161,10 @@ erDiagram
 - Pas d'entité "objectifs" (goals) ni de plan nutritionnel/sportif prescrit — absent des sprints fournis, à ajouter si besoin métier confirmé.
 - `MEDICAL_PROFILES`, `DIETARY_PREFERENCES`, `FITNESS_PROFILES`, `DIET_RECOMMENDATIONS` sont historisées (1 utilisateur -> N relevés dans le temps, comme `BIOMETRIC_MEASUREMENTS`) plutôt que 1-1, pour garder l'historique des changements — à confirmer que c'est le bon choix plutôt qu'un profil unique mis à jour en place.
 - `blood_pressure_mmhg` est stocké comme une valeur unique (le dataset source ne distingue pas systolique/diastolique) — à revoir si une vraie mesure tensionnelle (deux valeurs) est nécessaire.
+- `SUBSCRIPTIONS.price_eur_cents` trace le prix convenu au moment de la souscription mais n'est ni facturé ni prélevé par l'API (pas d'intégration de paiement dans ce lot) — à confirmer qu'un prestataire externe (Stripe ou équivalent) fera foi pour la facturation réelle et que cette colonne restera informative.
+- Une seule souscription `active` par utilisateur à la fois est imposée (index unique partiel `WHERE status = 'active'`) — à confirmer qu'un changement de palier doit bien clore l'ancienne souscription plutôt que d'autoriser des souscriptions actives concurrentes.
+- `ORGANIZATIONS` est volontairement minimal (nom + email de contact) : pas de gestion de marque blanche (logo, sous-domaine, plan négocié par organisation) dans ce lot — à enrichir si le besoin B2B se précise.
+- Le statut `expired` n'est pas positionné automatiquement par l'API à l'échéance d'une souscription (pas de tâche planifiée dans ce lot) — à confirmer si un job périodique (Airflow ?) doit faire cette transition.
 
 ---
 
@@ -161,9 +196,13 @@ FITNESS_PROFILES (fitness_profile_id, #user_id, physical_activity_level, workout
 DIET_RECOMMENDATIONS (diet_recommendation_id, #user_id, daily_caloric_intake_kcal, adherence_to_diet_plan_pct, dietary_nutrient_imbalance_score, recommendation, recommended_at)
 
 DATA_QUALITY_LOG (dq_log_id, source_table, source_record_id, dag_id, rule_name, severity, message, detected_at, resolved, resolved_at, #resolved_by)
+
+ORGANIZATIONS (organization_id, name, contact_email, created_at)
+
+SUBSCRIPTIONS (subscription_id, #user_id, #organization_id, tier, status, price_eur_cents, started_at, ended_at, created_at)
 ```
 
-Toutes les associations du MCD sont de cardinalité (1,N) côté "possède/contient" — c'est-à-dire FK `NOT NULL` (participation obligatoire) — **sauf `DATA_QUALITY_LOG.resolved_by`, en (0,N)** : une anomalie peut rester non résolue (FK nullable), donc la cardinalité côté `USERS` est `(0,1)` et non `(1,1)` comme pour toutes les autres relations. Aucune table associative n'est nécessaire par ailleurs, chaque FK est absorbée côté table "N".
+Toutes les associations du MCD sont de cardinalité (1,N) côté "possède/contient" — c'est-à-dire FK `NOT NULL` (participation obligatoire) — **sauf `DATA_QUALITY_LOG.resolved_by` et `SUBSCRIPTIONS.organization_id`, en (0,N)** : une anomalie peut rester non résolue et une souscription peut ne pas être liée à une organisation (FK nullable), donc la cardinalité côté `USERS`/`ORGANIZATIONS` est `(0,1)` et non `(1,1)` comme pour toutes les autres relations. Aucune table associative n'est nécessaire par ailleurs, chaque FK est absorbée côté table "N".
 
 ---
 
@@ -172,6 +211,8 @@ Toutes les associations du MCD sont de cardinalité (1,N) côté "possède/conti
 Traduit en PostgreSQL dans [`ddl_postgres.sql`](./ddl_postgres.sql) : types précis, contraintes `CHECK`, `NOT NULL`, `UNIQUE`, `ON DELETE`, et index sur les colonnes de filtrage/tri fréquents (`user_id` + colonne temporelle sur chaque table de journal).
 
 `DATA_QUALITY_LOG` porte en plus un `CHECK` de cohérence (`chk_data_quality_log_resolution_consistency`) : `resolved_at`/`resolved_by` ne peuvent être renseignés que si `resolved = TRUE` — ce n'est pas une règle de forme normale (3NF ne regarde que les dépendances fonctionnelles), mais une règle métier qui aurait pu être violée silencieusement sans cette contrainte.
+
+`SUBSCRIPTIONS` porte le même type de `CHECK` de cohérence métier (`chk_subscriptions_b2b_organization`) : `organization_id` doit être renseigné si et seulement si `tier = 'b2b'`. Un index unique partiel (`uq_subscriptions_one_active_per_user`) garantit par ailleurs qu'un utilisateur n'a jamais plus d'une souscription `status = 'active'` simultanément.
 
 **Le diagramme généré par drawdb (*Import → SQL* à partir de `ddl_postgres.sql`) est une vue du MPD**, pas du MCD : il affiche les types SQL concrets (`SERIAL`, `VARCHAR(255)`, `NUMERIC(7,2)`...) et les contraintes physiques, avec une notation simplifiée `1`/`n` qui code uniquement le maximum — jamais l'optionalité (0 vs 1). Pour vérifier une cardinalité Merise complète (min,max), se référer au MCD ci-dessus ou à la nullabilité des colonnes FK dans le DDL.
 

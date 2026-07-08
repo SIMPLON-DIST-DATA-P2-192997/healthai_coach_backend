@@ -303,6 +303,47 @@ COMMENT ON COLUMN data_quality_log.resolved IS 'Vrai si l''anomalie a été trai
 COMMENT ON COLUMN data_quality_log.resolved_at IS 'Date de résolution — renseignée uniquement si resolved = TRUE (cf. contrainte chk_data_quality_log_resolution_consistency).';
 COMMENT ON COLUMN data_quality_log.resolved_by IS 'Administrateur ayant résolu l''anomalie (FK users, optionnelle).';
 
+CREATE TABLE organizations (
+    organization_id  SERIAL PRIMARY KEY,
+    name             VARCHAR(255) NOT NULL,
+    contact_email    VARCHAR(255) NOT NULL,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE organizations IS 'Organisations partenaires (salles de sport, mutuelles, entreprises) pour l''offre B2B en marque blanche.';
+COMMENT ON COLUMN organizations.organization_id IS 'Identifiant technique (clé primaire).';
+COMMENT ON COLUMN organizations.name IS 'Nom de l''organisation.';
+COMMENT ON COLUMN organizations.contact_email IS 'Email de contact référent côté organisation.';
+COMMENT ON COLUMN organizations.created_at IS 'Date de création de la fiche organisation.';
+
+CREATE TABLE subscriptions (
+    subscription_id  BIGSERIAL PRIMARY KEY,
+    user_id          INTEGER NOT NULL,
+    organization_id  INTEGER,
+    tier             VARCHAR(20) NOT NULL CHECK (tier IN ('free', 'premium', 'premium_plus', 'b2b')),
+    status           VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'expired')),
+    price_eur_cents  INTEGER CHECK (price_eur_cents >= 0),
+    started_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ended_at         TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_subscriptions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_subscriptions_organization FOREIGN KEY (organization_id) REFERENCES organizations(organization_id) ON DELETE RESTRICT,
+    CONSTRAINT chk_subscriptions_ended_after_started CHECK (ended_at IS NULL OR ended_at >= started_at),
+    CONSTRAINT chk_subscriptions_b2b_organization
+        CHECK ((tier = 'b2b' AND organization_id IS NOT NULL) OR (tier <> 'b2b' AND organization_id IS NULL))
+);
+
+COMMENT ON TABLE subscriptions IS 'Historique des souscriptions des utilisateurs (free, premium, premium_plus, b2b) — cf. modele_donnees.md pour le modèle économique.';
+COMMENT ON COLUMN subscriptions.subscription_id IS 'Identifiant technique (clé primaire).';
+COMMENT ON COLUMN subscriptions.user_id IS 'Utilisateur souscripteur (FK users).';
+COMMENT ON COLUMN subscriptions.organization_id IS 'Organisation de rattachement B2B (FK organizations), renseignée uniquement si tier = ''b2b'' (cf. contrainte chk_subscriptions_b2b_organization).';
+COMMENT ON COLUMN subscriptions.tier IS 'Palier souscrit : free, premium, premium_plus ou b2b.';
+COMMENT ON COLUMN subscriptions.status IS 'Statut de la souscription : active, cancelled ou expired.';
+COMMENT ON COLUMN subscriptions.price_eur_cents IS 'Prix convenu au moment de la souscription (centimes d''euro) — valeur informative, aucune intégration de paiement dans ce lot (cf. modele_donnees.md).';
+COMMENT ON COLUMN subscriptions.started_at IS 'Début de la souscription.';
+COMMENT ON COLUMN subscriptions.ended_at IS 'Fin de la souscription (résiliation ou changement de palier), optionnelle si toujours active.';
+COMMENT ON COLUMN subscriptions.created_at IS 'Date d''enregistrement de la ligne en base.';
+
 -- Index utiles pour les requêtes fréquentes (filtrage/tri par utilisateur + temps)
 CREATE INDEX idx_nutrition_logs_user_logged_at ON nutrition_logs (user_id, logged_at);
 CREATE INDEX idx_workout_sessions_user_started_at ON workout_sessions (user_id, started_at);
@@ -312,3 +353,5 @@ CREATE INDEX idx_dietary_preferences_user_recorded_at ON dietary_preferences (us
 CREATE INDEX idx_fitness_profiles_user_recorded_at ON fitness_profiles (user_id, recorded_at);
 CREATE INDEX idx_diet_recommendations_user_recommended_at ON diet_recommendations (user_id, recommended_at);
 CREATE INDEX idx_data_quality_log_unresolved ON data_quality_log (resolved) WHERE resolved = FALSE;
+CREATE INDEX idx_subscriptions_user_started_at ON subscriptions (user_id, started_at);
+CREATE UNIQUE INDEX uq_subscriptions_one_active_per_user ON subscriptions (user_id) WHERE status = 'active';
