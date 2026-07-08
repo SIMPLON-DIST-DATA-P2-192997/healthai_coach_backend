@@ -34,7 +34,7 @@ paths:
     post:
       tags:
       - auth
-      summary: Login
+      summary: Log in
       description: Authenticate with email + password, receive a JWT access token.
       operationId: login_api_v1_auth_login_post
       requestBody:
@@ -86,7 +86,7 @@ paths:
     get:
       tags:
       - users
-      summary: Read Current User
+      summary: Get my profile
       description: Return the currently authenticated user's profile.
       operationId: read_current_user_api_v1_users_me_get
       responses:
@@ -101,7 +101,7 @@ paths:
     put:
       tags:
       - users
-      summary: Update Current User
+      summary: Update my profile
       description: Update the currently authenticated user's own profile.
       operationId: update_current_user_api_v1_users_me_put
       requestBody:
@@ -129,7 +129,7 @@ paths:
     get:
       tags:
       - admin
-      summary: List Users
+      summary: List all users
       description: List all users (admin only).
       operationId: list_users_api_v1_admin_users_get
       security:
@@ -169,7 +169,7 @@ paths:
     get:
       tags:
       - admin
-      summary: Read User
+      summary: Get a user
       description: Get a specific user by ID (admin only).
       operationId: read_user_api_v1_admin_users__user_id__get
       security:
@@ -197,7 +197,7 @@ paths:
     put:
       tags:
       - admin
-      summary: Update User Admin
+      summary: Update a user
       description: Update any user's data or role (admin only).
       operationId: update_user_admin_api_v1_admin_users__user_id__put
       security:
@@ -231,7 +231,7 @@ paths:
     delete:
       tags:
       - admin
-      summary: Delete User Admin
+      summary: Delete a user
       description: Delete a user (admin only).
       operationId: delete_user_admin_api_v1_admin_users__user_id__delete
       security:
@@ -1846,9 +1846,6 @@ components:
         source_table:
           type: string
           title: Source Table
-          description: 'Table the anomaly concerns, free text (not a foreign key):
-            must be able to reference any table ingested by the ETL without a schema
-            constraint.'
         source_record_id:
           anyOf:
           - type: string
@@ -1885,9 +1882,6 @@ components:
         source_table:
           type: string
           title: Source Table
-          description: 'Table the anomaly concerns, free text (not a foreign key):
-            must be able to reference any table ingested by the ETL without a schema
-            constraint.'
         source_record_id:
           anyOf:
           - type: string
@@ -2269,12 +2263,9 @@ components:
           - type: string
           - type: 'null'
           title: External Id
-          description: Identifier in the source dataset. Combined with `source`, forms
-            the idempotent upsert key (UNIQUE(source, external_id)) used by the ETL.
         source:
           type: string
           title: Source
-          description: Data origin, e.g. 'kaggle_daily_food_nutrition'.
         name:
           type: string
           title: Name
@@ -2329,8 +2320,6 @@ components:
             minimum: 0.0
           - type: 'null'
           title: Cholesterol Mg
-          description: Dietary cholesterol (mg) — not to be confused with blood cholesterol
-            (see MedicalProfile.cholesterol_mg_dl).
         serving_size_g:
           anyOf:
           - type: number
@@ -2350,12 +2339,9 @@ components:
           - type: string
           - type: 'null'
           title: External Id
-          description: Identifier in the source dataset. Combined with `source`, forms
-            the idempotent upsert key (UNIQUE(source, external_id)) used by the ETL.
         source:
           type: string
           title: Source
-          description: Data origin, e.g. 'kaggle_daily_food_nutrition'.
         name:
           type: string
           title: Name
@@ -2410,8 +2396,6 @@ components:
             minimum: 0.0
           - type: 'null'
           title: Cholesterol Mg
-          description: Dietary cholesterol (mg) — not to be confused with blood cholesterol
-            (see MedicalProfile.cholesterol_mg_dl).
         serving_size_g:
           anyOf:
           - type: number
@@ -2533,16 +2517,12 @@ components:
             minimum: 0.0
           - type: 'null'
           title: Cholesterol Mg Dl
-          description: Blood cholesterol (mg/dL) — not to be confused with dietary
-            cholesterol (see FoodItem.cholesterol_mg).
         blood_pressure_mmhg:
           anyOf:
           - type: number
             minimum: 0.0
           - type: 'null'
           title: Blood Pressure Mmhg
-          description: 'Blood pressure (mmHg) as a single value: the source dataset
-            does not distinguish systolic/diastolic.'
         glucose_mg_dl:
           anyOf:
           - type: number
@@ -2579,16 +2559,12 @@ components:
             minimum: 0.0
           - type: 'null'
           title: Cholesterol Mg Dl
-          description: Blood cholesterol (mg/dL) — not to be confused with dietary
-            cholesterol (see FoodItem.cholesterol_mg).
         blood_pressure_mmhg:
           anyOf:
           - type: number
             minimum: 0.0
           - type: 'null'
           title: Blood Pressure Mmhg
-          description: 'Blood pressure (mmHg) as a single value: the source dataset
-            does not distinguish systolic/diastolic.'
         glucose_mg_dl:
           anyOf:
           - type: number

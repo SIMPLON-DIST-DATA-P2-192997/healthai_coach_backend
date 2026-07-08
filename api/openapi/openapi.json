@@ -11,7 +11,7 @@
         "tags": [
           "auth"
         ],
-        "summary": "Login",
+        "summary": "Log in",
         "description": "Authenticate with email + password, receive a JWT access token.",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
@@ -95,7 +95,7 @@
         "tags": [
           "users"
         ],
-        "summary": "Read Current User",
+        "summary": "Get my profile",
         "description": "Return the currently authenticated user's profile.",
         "operationId": "read_current_user_api_v1_users_me_get",
         "responses": {
@@ -120,7 +120,7 @@
         "tags": [
           "users"
         ],
-        "summary": "Update Current User",
+        "summary": "Update my profile",
         "description": "Update the currently authenticated user's own profile.",
         "operationId": "update_current_user_api_v1_users_me_put",
         "requestBody": {
@@ -167,7 +167,7 @@
         "tags": [
           "admin"
         ],
-        "summary": "List Users",
+        "summary": "List all users",
         "description": "List all users (admin only).",
         "operationId": "list_users_api_v1_admin_users_get",
         "security": [
@@ -230,7 +230,7 @@
         "tags": [
           "admin"
         ],
-        "summary": "Read User",
+        "summary": "Get a user",
         "description": "Get a specific user by ID (admin only).",
         "operationId": "read_user_api_v1_admin_users__user_id__get",
         "security": [
@@ -276,7 +276,7 @@
         "tags": [
           "admin"
         ],
-        "summary": "Update User Admin",
+        "summary": "Update a user",
         "description": "Update any user's data or role (admin only).",
         "operationId": "update_user_admin_api_v1_admin_users__user_id__put",
         "security": [
@@ -332,7 +332,7 @@
         "tags": [
           "admin"
         ],
-        "summary": "Delete User Admin",
+        "summary": "Delete a user",
         "description": "Delete a user (admin only).",
         "operationId": "delete_user_admin_api_v1_admin_users__user_id__delete",
         "security": [
@@ -2929,8 +2929,7 @@
         "properties": {
           "source_table": {
             "type": "string",
-            "title": "Source Table",
-            "description": "Table the anomaly concerns, free text (not a foreign key): must be able to reference any table ingested by the ETL without a schema constraint."
+            "title": "Source Table"
           },
           "source_record_id": {
             "anyOf": [
@@ -2986,8 +2985,7 @@
         "properties": {
           "source_table": {
             "type": "string",
-            "title": "Source Table",
-            "description": "Table the anomaly concerns, free text (not a foreign key): must be able to reference any table ingested by the ETL without a schema constraint."
+            "title": "Source Table"
           },
           "source_record_id": {
             "anyOf": [
@@ -3688,13 +3686,11 @@
                 "type": "null"
               }
             ],
-            "title": "External Id",
-            "description": "Identifier in the source dataset. Combined with `source`, forms the idempotent upsert key (UNIQUE(source, external_id)) used by the ETL."
+            "title": "External Id"
           },
           "source": {
             "type": "string",
-            "title": "Source",
-            "description": "Data origin, e.g. 'kaggle_daily_food_nutrition'."
+            "title": "Source"
           },
           "name": {
             "type": "string",
@@ -3798,8 +3794,7 @@
                 "type": "null"
               }
             ],
-            "title": "Cholesterol Mg",
-            "description": "Dietary cholesterol (mg) — not to be confused with blood cholesterol (see MedicalProfile.cholesterol_mg_dl)."
+            "title": "Cholesterol Mg"
           },
           "serving_size_g": {
             "anyOf": [
@@ -3833,13 +3828,11 @@
                 "type": "null"
               }
             ],
-            "title": "External Id",
-            "description": "Identifier in the source dataset. Combined with `source`, forms the idempotent upsert key (UNIQUE(source, external_id)) used by the ETL."
+            "title": "External Id"
           },
           "source": {
             "type": "string",
-            "title": "Source",
-            "description": "Data origin, e.g. 'kaggle_daily_food_nutrition'."
+            "title": "Source"
           },
           "name": {
             "type": "string",
@@ -3943,8 +3936,7 @@
                 "type": "null"
               }
             ],
-            "title": "Cholesterol Mg",
-            "description": "Dietary cholesterol (mg) — not to be confused with blood cholesterol (see MedicalProfile.cholesterol_mg_dl)."
+            "title": "Cholesterol Mg"
           },
           "serving_size_g": {
             "anyOf": [
@@ -4172,8 +4164,7 @@
                 "type": "null"
               }
             ],
-            "title": "Cholesterol Mg Dl",
-            "description": "Blood cholesterol (mg/dL) — not to be confused with dietary cholesterol (see FoodItem.cholesterol_mg)."
+            "title": "Cholesterol Mg Dl"
           },
           "blood_pressure_mmhg": {
             "anyOf": [
@@ -4185,8 +4176,7 @@
                 "type": "null"
               }
             ],
-            "title": "Blood Pressure Mmhg",
-            "description": "Blood pressure (mmHg) as a single value: the source dataset does not distinguish systolic/diastolic."
+            "title": "Blood Pressure Mmhg"
           },
           "glucose_mg_dl": {
             "anyOf": [
@@ -4251,8 +4241,7 @@
                 "type": "null"
               }
             ],
-            "title": "Cholesterol Mg Dl",
-            "description": "Blood cholesterol (mg/dL) — not to be confused with dietary cholesterol (see FoodItem.cholesterol_mg)."
+            "title": "Cholesterol Mg Dl"
           },
           "blood_pressure_mmhg": {
             "anyOf": [
@@ -4264,8 +4253,7 @@
                 "type": "null"
               }
             ],
-            "title": "Blood Pressure Mmhg",
-            "description": "Blood pressure (mmHg) as a single value: the source dataset does not distinguish systolic/diastolic."
+            "title": "Blood Pressure Mmhg"
           },
           "glucose_mg_dl": {
             "anyOf": [

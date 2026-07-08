@@ -14,7 +14,13 @@ from api.schemas.biometric_measurement import (
 router = APIRouter(prefix="/biometrics", tags=["biometrics"])
 
 
-@router.get("", response_model=List[BiometricMeasurementRead])
+@router.get(
+    "",
+    response_model=List[BiometricMeasurementRead],
+    summary="List my biometric measurements",
+    description="Return the authenticated user's biometric measurements (weight, height, body "
+    "composition...), most recent first.",
+)
 def list_my_measurements(
     skip: int = 0, limit: int = 100,
     current_user: CurrentUser = ...,  # type: ignore[assignment]
@@ -23,14 +29,26 @@ def list_my_measurements(
     return get_measurements_by_user(db, current_user.id, skip=skip, limit=limit)  # type: ignore[return-value]
 
 
-@router.post("", response_model=BiometricMeasurementRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=BiometricMeasurementRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record a biometric measurement",
+    description="Create a new biometric measurement for the authenticated user. At most one "
+    "measurement is allowed per (user, measured_at) timestamp.",
+)
 def create_my_measurement(
     measurement_in: BiometricMeasurementCreate, current_user: CurrentUser, db: DB
 ) -> BiometricMeasurementRead:
     return create_measurement(db, current_user.id, measurement_in)  # type: ignore[return-value]
 
 
-@router.get("/{measurement_id}", response_model=BiometricMeasurementRead)
+@router.get(
+    "/{measurement_id}",
+    response_model=BiometricMeasurementRead,
+    summary="Get a biometric measurement",
+    description="Return a single biometric measurement owned by the authenticated user.",
+)
 def read_my_measurement(measurement_id: int, current_user: CurrentUser, db: DB) -> BiometricMeasurementRead:
     m = get_measurement(db, measurement_id)
     if not m or int(m.user_id) != current_user.id:  # type: ignore[arg-type]
@@ -38,7 +56,12 @@ def read_my_measurement(measurement_id: int, current_user: CurrentUser, db: DB) 
     return m  # type: ignore[return-value]
 
 
-@router.put("/{measurement_id}", response_model=BiometricMeasurementRead)
+@router.put(
+    "/{measurement_id}",
+    response_model=BiometricMeasurementRead,
+    summary="Update a biometric measurement",
+    description="Partially update a biometric measurement owned by the authenticated user.",
+)
 def update_my_measurement(
     measurement_id: int, update_data: BiometricMeasurementUpdate, current_user: CurrentUser, db: DB
 ) -> BiometricMeasurementRead:
@@ -48,7 +71,12 @@ def update_my_measurement(
     return update_measurement(db, m, update_data)  # type: ignore[return-value]
 
 
-@router.delete("/{measurement_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{measurement_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a biometric measurement",
+    description="Delete a biometric measurement owned by the authenticated user.",
+)
 def delete_my_measurement(measurement_id: int, current_user: CurrentUser, db: DB) -> None:
     m = get_measurement(db, measurement_id)
     if not m or int(m.user_id) != current_user.id:  # type: ignore[arg-type]
