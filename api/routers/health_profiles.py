@@ -24,7 +24,14 @@ router = APIRouter(prefix="/health-profiles", tags=["health-profiles"])
 # Medical profiles
 # ---------------------------------------------------------------------------
 
-@router.get("/medical", response_model=List[MedicalProfileRead])
+@router.get(
+    "/medical",
+    response_model=List[MedicalProfileRead],
+    summary="List my medical profile history",
+    description="Return the authenticated user's medical profile entries over time (disease "
+    "type, severity, cholesterol, blood pressure, glucose), most recent first. Historized rather "
+    "than a single mutable record, to keep a change history.",
+)
 def list_medical_profiles(
     skip: int = 0, limit: int = 100,
     current_user: CurrentUser = ...,  # type: ignore[assignment]
@@ -33,12 +40,23 @@ def list_medical_profiles(
     return get_medical_profiles(db, current_user.id, skip=skip, limit=limit)  # type: ignore[return-value]
 
 
-@router.post("/medical", response_model=MedicalProfileRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/medical",
+    response_model=MedicalProfileRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record a medical profile entry",
+    description="Add a new medical profile entry for the authenticated user.",
+)
 def create_my_medical_profile(data_in: MedicalProfileCreate, current_user: CurrentUser, db: DB) -> MedicalProfileRead:
     return create_medical_profile(db, current_user.id, data_in)  # type: ignore[return-value]
 
 
-@router.delete("/medical/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/medical/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a medical profile entry",
+    description="Delete a medical profile entry owned by the authenticated user.",
+)
 def delete_my_medical_profile(profile_id: int, current_user: CurrentUser, db: DB) -> None:
     obj = get_medical_profile(db, profile_id)
     if not obj or int(obj.user_id) != current_user.id:  # type: ignore[arg-type]
@@ -50,7 +68,13 @@ def delete_my_medical_profile(profile_id: int, current_user: CurrentUser, db: DB
 # Dietary preferences
 # ---------------------------------------------------------------------------
 
-@router.get("/dietary", response_model=List[DietaryPreferenceRead])
+@router.get(
+    "/dietary",
+    response_model=List[DietaryPreferenceRead],
+    summary="List my dietary preferences history",
+    description="Return the authenticated user's declared dietary preferences over time "
+    "(restrictions, allergies, preferred cuisine), most recent first.",
+)
 def list_dietary_preferences(
     skip: int = 0, limit: int = 100,
     current_user: CurrentUser = ...,  # type: ignore[assignment]
@@ -59,12 +83,23 @@ def list_dietary_preferences(
     return get_dietary_preferences(db, current_user.id, skip=skip, limit=limit)  # type: ignore[return-value]
 
 
-@router.post("/dietary", response_model=DietaryPreferenceRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/dietary",
+    response_model=DietaryPreferenceRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record a dietary preference entry",
+    description="Add a new dietary preference entry for the authenticated user.",
+)
 def create_my_dietary_preference(data_in: DietaryPreferenceCreate, current_user: CurrentUser, db: DB) -> DietaryPreferenceRead:
     return create_dietary_preference(db, current_user.id, data_in)  # type: ignore[return-value]
 
 
-@router.delete("/dietary/{pref_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/dietary/{pref_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a dietary preference entry",
+    description="Delete a dietary preference entry owned by the authenticated user.",
+)
 def delete_my_dietary_preference(pref_id: int, current_user: CurrentUser, db: DB) -> None:
     obj = get_dietary_preference(db, pref_id)
     if not obj or int(obj.user_id) != current_user.id:  # type: ignore[arg-type]
@@ -76,7 +111,14 @@ def delete_my_dietary_preference(pref_id: int, current_user: CurrentUser, db: DB
 # Fitness profiles
 # ---------------------------------------------------------------------------
 
-@router.get("/fitness", response_model=List[FitnessProfileRead])
+@router.get(
+    "/fitness",
+    response_model=List[FitnessProfileRead],
+    summary="List my fitness profile history",
+    description="Return the authenticated user's self-reported fitness level over time "
+    "(activity level, workout frequency, experience level), distinct from the actual logged "
+    "workout_sessions/workout_sets facts, most recent first.",
+)
 def list_fitness_profiles(
     skip: int = 0, limit: int = 100,
     current_user: CurrentUser = ...,  # type: ignore[assignment]
@@ -85,12 +127,23 @@ def list_fitness_profiles(
     return get_fitness_profiles(db, current_user.id, skip=skip, limit=limit)  # type: ignore[return-value]
 
 
-@router.post("/fitness", response_model=FitnessProfileRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/fitness",
+    response_model=FitnessProfileRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record a fitness profile entry",
+    description="Add a new self-reported fitness profile entry for the authenticated user.",
+)
 def create_my_fitness_profile(data_in: FitnessProfileCreate, current_user: CurrentUser, db: DB) -> FitnessProfileRead:
     return create_fitness_profile(db, current_user.id, data_in)  # type: ignore[return-value]
 
 
-@router.delete("/fitness/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/fitness/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a fitness profile entry",
+    description="Delete a fitness profile entry owned by the authenticated user.",
+)
 def delete_my_fitness_profile(profile_id: int, current_user: CurrentUser, db: DB) -> None:
     obj = get_fitness_profile(db, profile_id)
     if not obj or int(obj.user_id) != current_user.id:  # type: ignore[arg-type]
@@ -102,7 +155,14 @@ def delete_my_fitness_profile(profile_id: int, current_user: CurrentUser, db: DB
 # Diet recommendations (read-only for users)
 # ---------------------------------------------------------------------------
 
-@router.get("/diet-recommendations", response_model=List[DietRecommendationRead])
+@router.get(
+    "/diet-recommendations",
+    response_model=List[DietRecommendationRead],
+    summary="List my diet recommendations",
+    description="Return diet recommendations generated for the authenticated user by the "
+    "recommendation engine, most recent first. Read-only: recommendations are produced by an "
+    "offline process, not created directly through the API.",
+)
 def list_my_diet_recommendations(
     skip: int = 0, limit: int = 100,
     current_user: CurrentUser = ...,  # type: ignore[assignment]

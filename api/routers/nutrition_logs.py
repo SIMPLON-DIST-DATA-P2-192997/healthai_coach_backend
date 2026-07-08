@@ -12,7 +12,12 @@ from api.schemas.nutrition_log import NutritionLogCreate, NutritionLogRead, Nutr
 router = APIRouter(prefix="/nutrition-logs", tags=["nutrition-logs"])
 
 
-@router.get("", response_model=List[NutritionLogRead])
+@router.get(
+    "",
+    response_model=List[NutritionLogRead],
+    summary="List my nutrition logs",
+    description="Return the authenticated user's logged meals, most recent first.",
+)
 def list_my_nutrition_logs(
     skip: int = 0,
     limit: int = 100,
@@ -22,7 +27,12 @@ def list_my_nutrition_logs(
     return get_nutrition_logs_by_user(db, current_user.id, skip=skip, limit=limit)  # type: ignore[return-value]
 
 
-@router.get("/{log_id}", response_model=NutritionLogRead)
+@router.get(
+    "/{log_id}",
+    response_model=NutritionLogRead,
+    summary="Get a nutrition log",
+    description="Return a single logged meal owned by the authenticated user.",
+)
 def read_nutrition_log(log_id: int, current_user: CurrentUser, db: DB) -> NutritionLogRead:
     log = get_nutrition_log(db, log_id)
     if not log or int(log.user_id) != current_user.id:  # type: ignore[arg-type]
@@ -30,7 +40,15 @@ def read_nutrition_log(log_id: int, current_user: CurrentUser, db: DB) -> Nutrit
     return log  # type: ignore[return-value]
 
 
-@router.post("", response_model=NutritionLogRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=NutritionLogRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Log a meal",
+    description="Record that the authenticated user consumed a given quantity of a food item. "
+    "`meal_type` must be one of breakfast, lunch, dinner, snack. Defaults `logged_at` to now if "
+    "omitted.",
+)
 def create_my_nutrition_log(
     log_in: NutritionLogCreate,
     current_user: CurrentUser,
@@ -39,7 +57,12 @@ def create_my_nutrition_log(
     return create_nutrition_log(db, current_user.id, log_in)  # type: ignore[return-value]
 
 
-@router.put("/{log_id}", response_model=NutritionLogRead)
+@router.put(
+    "/{log_id}",
+    response_model=NutritionLogRead,
+    summary="Update a nutrition log",
+    description="Partially update a logged meal owned by the authenticated user.",
+)
 def update_my_nutrition_log(
     log_id: int,
     update_data: NutritionLogUpdate,
@@ -52,7 +75,12 @@ def update_my_nutrition_log(
     return update_nutrition_log(db, log, update_data)  # type: ignore[return-value]
 
 
-@router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{log_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a nutrition log",
+    description="Delete a logged meal owned by the authenticated user.",
+)
 def delete_my_nutrition_log(log_id: int, current_user: CurrentUser, db: DB) -> None:
     log = get_nutrition_log(db, log_id)
     if not log or int(log.user_id) != current_user.id:  # type: ignore[arg-type]
