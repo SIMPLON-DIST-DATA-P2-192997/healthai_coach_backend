@@ -1,5 +1,5 @@
 from etl.transform.clean_diet import clean_diet
-from etl.transform.clean_exercises import clean_exercices
+from etl.transform.clean_exercises import clean_exercises
 from etl.transform.clean_nutrition import clean_nutrition
 from etl.transform.clean_users import clean_users_activity
 
@@ -50,12 +50,12 @@ def test_clean_exercices(mock_file, mock_json_load):
     }]
     mock_json_load.return_value = mock_data
 
-    df_exercises = clean_exercices()
+    df_exercises = clean_exercises()
 
     assert len(df_exercises) == 1
     assert df_exercises.loc[0, "body_part"] == "Chest Arms"
     assert df_exercises.loc[0, "instructions"] == "Step 1\nStep 2"
-    assert df_exercises.loc[0, "source"] == "exercices_json"
+    assert df_exercises.loc[0, "source"] == "exercisedb"
     assert "external_id" in df_exercises.columns
 
 # TEST : clean_nutrition
@@ -79,7 +79,7 @@ def test_clean_nutrition(mock_read_csv):
 
     df_nutrition = clean_nutrition()
 
-    assert df_nutrition.loc[0, "source"] == "kaggle_food_nutrition"
+    assert df_nutrition.loc[0, "source"] == "kaggle_daily_food_nutrition"
     assert "calories_kcal" in df_nutrition.columns
     assert df_nutrition.loc[0, "calories_kcal"] == 52
     assert len(df_nutrition.columns) == 12
@@ -102,7 +102,7 @@ def test_clean_users_activity(mock_read_csv):
     
     mock_df_user = pd.DataFrame({
         "Unnamed: 0": [1],
-        "Age": [25],
+        # "date_of_birth": ["1980-01-01"],
         "Gender": ["Male"]
     })
     
@@ -119,6 +119,6 @@ def test_clean_users_activity(mock_read_csv):
     assert "Unnamed: 0" not in bio.columns
     
     assert users.loc[1, "sex"] == "M"
-    assert users.loc[1, "Age"] == 25
-    assert users.loc[1, "hashed_password"] == "fake_hashed_password"
+    # assert users.loc[1, "date_of_birth"] == "1980-01-01"
+    assert users.loc[1, "hashed_password"] == "seed-not-a-real-hash"
     assert isinstance(users.loc[1, "first_name"], str)
