@@ -15,7 +15,6 @@ class FoodItem(Base):
         CheckConstraint("sugar_g >= 0", name="ck_food_items_sugar_g"),
         CheckConstraint("sodium_mg >= 0", name="ck_food_items_sodium_mg"),
         CheckConstraint("cholesterol_mg >= 0", name="ck_food_items_cholesterol_mg"),
-        CheckConstraint("serving_size_g > 0", name="ck_food_items_serving_size_g"),
     )
 
     id = Column("food_item_id", Integer, primary_key=True, index=True)
@@ -23,6 +22,7 @@ class FoodItem(Base):
     source = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
     brand = Column(String(255), nullable=True)
+    category = Column(String(50), nullable=True)
     calories_kcal = Column(Numeric(7, 2), nullable=False)
     protein_g = Column(Numeric(6, 2), nullable=True)
     carbs_g = Column(Numeric(6, 2), nullable=True)
@@ -31,7 +31,6 @@ class FoodItem(Base):
     sugar_g = Column(Numeric(6, 2), nullable=True)
     sodium_mg = Column(Numeric(7, 2), nullable=True)
     cholesterol_mg = Column(Numeric(7, 2), nullable=True)
-    serving_size_g = Column(Numeric(6, 2), nullable=True)
     ingested_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self) -> str:

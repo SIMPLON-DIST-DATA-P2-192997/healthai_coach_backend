@@ -8,7 +8,7 @@ MealType = Literal["breakfast", "lunch", "dinner", "snack"]
 
 class NutritionLogBase(BaseModel):
     food_item_id: int
-    quantity_g: float = Field(gt=0)
+    portion_number: float = Field(gt=0)
     meal_type: MealType
     logged_at: datetime | None = None
 
@@ -18,7 +18,7 @@ class NutritionLogCreate(NutritionLogBase):
 
 
 class NutritionLogUpdate(BaseModel):
-    quantity_g: float | None = Field(default=None, gt=0)
+    portion_number: float | None = Field(default=None, gt=0)
     meal_type: MealType | None = None
     logged_at: datetime | None = None
 

@@ -16,7 +16,7 @@ from api.database import Base
 class NutritionLog(Base):
     __tablename__ = "nutrition_logs"
     __table_args__ = (
-        CheckConstraint("quantity_g > 0", name="ck_nutrition_logs_quantity_g"),
+        CheckConstraint("portion_number > 0", name="ck_nutrition_logs_portion_number"),
         CheckConstraint(
             "meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')",
             name="ck_nutrition_logs_meal_type",
@@ -30,7 +30,7 @@ class NutritionLog(Base):
     food_item_id = Column(
         Integer, ForeignKey("food_items.food_item_id", ondelete="RESTRICT"), nullable=False
     )
-    quantity_g = Column(Numeric(6, 2), nullable=False)
+    portion_number = Column(Numeric(6, 2), nullable=False)
     meal_type = Column(String(20), nullable=False)
     logged_at = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -213,7 +213,7 @@ def test_nutrition_log_meal_type_check_constraint(session):
         NutritionLog(
             user_id=user.id,
             food_item_id=food.id,
-            quantity_g=100,
+            portion_number=100,
             meal_type="brunch",
             logged_at=NOW,
         )
@@ -222,12 +222,12 @@ def test_nutrition_log_meal_type_check_constraint(session):
         session.commit()
 
 
-def test_nutrition_log_quantity_must_be_positive(session):
+def test_nutrition_log_portion_number_must_be_positive(session):
     user = make_user(session)
     food = make_food_item(session)
     session.add(
         NutritionLog(
-            user_id=user.id, food_item_id=food.id, quantity_g=0, meal_type="lunch", logged_at=NOW
+            user_id=user.id, food_item_id=food.id, portion_number=0, meal_type="lunch", logged_at=NOW
         )
     )
     with pytest.raises(IntegrityError):
@@ -239,7 +239,7 @@ def test_nutrition_log_cascades_on_user_delete(session):
     food = make_food_item(session)
     session.add(
         NutritionLog(
-            user_id=user.id, food_item_id=food.id, quantity_g=100, meal_type="lunch", logged_at=NOW
+            user_id=user.id, food_item_id=food.id, portion_number=100, meal_type="lunch", logged_at=NOW
         )
     )
     session.commit()
@@ -255,7 +255,7 @@ def test_nutrition_log_restricts_food_item_delete(session):
     food = make_food_item(session)
     session.add(
         NutritionLog(
-            user_id=user.id, food_item_id=food.id, quantity_g=100, meal_type="lunch", logged_at=NOW
+            user_id=user.id, food_item_id=food.id, portion_number=100, meal_type="lunch", logged_at=NOW
         )
     )
     session.commit()
