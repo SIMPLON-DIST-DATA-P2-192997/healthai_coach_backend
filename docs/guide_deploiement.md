@@ -110,6 +110,27 @@ DATABASE_URL=postgresql://healthai:changeme@localhost:5432/healthai_coach JWT_SE
 
 `http://localhost:8000/` redirige automatiquement vers `/docs` (Swagger UI) ; `/redoc` pour ReDoc.
 
+## Déroulé de démo bout-en-bout (oral)
+
+Checklist pour une démo live sans mauvaise surprise. **Lire l'avertissement à l'étape 5 avant de commencer** — l'ordre compte.
+
+1. **Démarrage propre**
+   ```bash
+   docker compose up -d --build
+   docker compose ps   # tout Up/healthy sauf db-init, airflow-init (Exited (0), normal)
+   ```
+2. **Interface admin** (http://localhost:7860) — montrer le tableau des anomalies de qualité (données de démo `seed_data.py`), filtrer par sévérité, résoudre une anomalie, exporter en CSV/JSON.
+3. **Metabase** (http://localhost:3000) — se connecter si pas déjà fait (section dédiée ci-dessus), montrer le schéma `healthai_coach` et une ou deux vues KPI (`vw_nutrition_meal_type_breakdown`, `vw_biometric_trend`...).
+4. **API** (hors docker-compose en attendant le Dockerfile de Florian) :
+   ```bash
+   source .venv/bin/activate
+   DATABASE_URL=postgresql://healthai:changeme@localhost:5432/healthai_coach JWT_SECRET_KEY=dev-secret uvicorn api.main:app --reload --port 8000
+   ```
+   Ouvrir http://localhost:8000/docs — Swagger UI, montrer l'authentification (`POST /auth/login`), un endpoint self-service (`GET /users/me`), et si pertinent le gating premium sur `/ai/*` (403 en `free`, 201 après `POST /subscriptions`).
+5. **Airflow** (http://localhost:8080, `airflow`/`airflow`) — montrer le DAG `healthai_etl_pipeline`, le déclencher (bouton Play), suivre l'exécution des 3 tâches en direct (Graph view), puis retourner sur l'interface admin/Metabase pour montrer les **vraies données ETL** venant de remplacer les données de démo (ex. `SELECT COUNT(*) FROM users` passe de 101 à plusieurs milliers).
+
+   **⚠️ Piège à éviter pendant la démo** : une fois le DAG déclenché avec succès, **ne plus relancer `docker compose up` ni redémarrer `admin_interface`/`metabase`** — cela redéclenche `db-init`, qui `TRUNCATE` tout et revient aux données de démo (confirmé empiriquement, cf. section "Point de vigilance" plus haut, et le rapport section Bilan). Si la démo doit repartir de zéro, c'est le seul moment où le relancer sans risque.
+
 ## Arrêt / nettoyage
 
 ```bash
