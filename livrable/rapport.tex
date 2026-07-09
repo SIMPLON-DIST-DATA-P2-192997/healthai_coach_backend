@@ -319,12 +319,16 @@ Le schéma s'appuie sur PostgreSQL pour porter un maximum de règles métier dir
 Le pipeline suit un découpage classique en trois étapes, une responsabilité par module sous \texttt{etl/} :
 
 \begin{itemize}[leftmargin=1.4em]
-  \item \texttt{extract/extract.py} — télécharge les quatre jeux de données Kaggle (nutrition, diet, gym-members, fitness-tracker) et interroge l'API publique \texttt{oss.exercisedb.dev} (pagination gérée) ; écrit les fichiers bruts sous \texttt{etl/data/}.
+  \item \texttt{extract/extract.py} — télécharge les quatre jeux de données Kaggle (nutrition, diet, gym-members, fitness-tracker) et interroge l'API publique \texttt{oss.exercisedb.dev} (pagination gérée, tolère un \texttt{429} en cours de pagination sans faire échouer tout le run) ; écrit les fichiers bruts sous \texttt{etl/data/}.
   \item \texttt{transform/} — un module par source (\texttt{clean\_nutrition.py}, \texttt{clean\_exercises.py}, \texttt{clean\_diet.py}, \texttt{clean\_users.py}), chacun responsable du renommage des colonnes vers le schéma cible, du typage, et du remplissage des colonnes obligatoires absentes de la source (cf. \S3.2, convention \texttt{Faker.seed()}).
-  \item \texttt{load/} — en cours de développement à la date de rédaction. Choix retenu : \texttt{pgcopy} pour l'insertion dans \texttt{users} (récupération de \texttt{user\_id} en \texttt{SERIAL}, sans dépendre du retour de \texttt{COPY} qui ne supporte pas \texttt{RETURNING}), et \texttt{INSERT ... ON CONFLICT DO UPDATE} pour les tables dotées d'une clé d'idempotence (\texttt{food\_items}, \texttt{exercises}) — méthode d'insertion choisie table par table selon la contrainte disponible, pas une méthode unique imposée à tout le pipeline.
+  \item \texttt{load/postgres\_loader.py} — chargement idempotent, deux techniques selon la table : \texttt{food\_items}/\texttt{exercises} passent par une table de staging (\texttt{to\_sql}) puis un \texttt{INSERT ... SELECT ... ON CONFLICT DO UPDATE} depuis le staging (clé \texttt{UNIQUE(source, external\_id)}) ; \texttt{users} par un \texttt{INSERT ... ON CONFLICT (email) DO UPDATE ... RETURNING user\_id} direct, dont l'identifiant sert ensuite à insérer les tables dépendantes (\texttt{biometric\_measurements}, \texttt{workout\_sessions}, \texttt{medical\_profiles}, \texttt{dietary\_preferences}).
 \end{itemize}
 
-L'orchestration (Sprint 3, Airflow) prévoit un DAG par source plus un DAG de contrôle qualité (\texttt{dag\_quality\_check.py}) journalisant les anomalies dans \texttt{data\_quality\_log}, activé une fois chaque module \texttt{transform}/\texttt{load} testé et mergé.
+\texttt{extract} et \texttt{load} exposent chacun une fonction d'entrée (\texttt{run()}, \texttt{load\_data()}) plutôt que d'exécuter leur logique au chargement du module — nécessaire pour un usage sûr depuis Airflow, qui importe périodiquement les fichiers DAG pour les parser sans vouloir déclencher un téléchargement ou une connexion base à chaque fois.
+
+L'orchestration (Sprint 3) est un DAG Airflow unique, \texttt{healthai\_etl\_pipeline} (\texttt{extract} $\rightarrow$ \texttt{transform\_and\_load} $\rightarrow$ \texttt{quality\_check}), plutôt qu'un DAG par source comme envisagé initialement : le volume et le nombre de sources de ce projet ne justifient pas la complexité d'une orchestration plus fine. \texttt{transform} et \texttt{load} sont une seule tâche parce qu'ils s'exécutent déjà dans le même processus côté code, sans artefact intermédiaire sur disque — les séparer aurait forcé à faire transiter des DataFrames pandas par XCom, déconseillé par la documentation Airflow au-delà de très petits volumes. \texttt{quality\_check} exécute des règles réelles (tables vides, valeurs plausibles mais suspectes, complétude) et journalise dans \texttt{data\_quality\_log} — jusqu'ici rien n'écrivait de vraies anomalies dans cette table en dehors du seed de démonstration.
+
+\paragraph{Isolation de dépendances.} Airflow 2.10.5 exige \texttt{SQLAlchemy<2.0} en interne, incompatible avec le \texttt{2.0.51} utilisé partout ailleurs dans le projet (installer les deux dans le même environnement Python casse le webserver/scheduler — confirmé par les avertissements \texttt{pip} avant correction). Les dépendances ETL sont donc installées dans un venv dédié à l'intérieur de l'image Airflow (\texttt{/opt/etl-venv}), et chaque tâche du DAG est un \texttt{BashOperator} qui invoque ce venv en sous-processus plutôt qu'un \texttt{PythonOperator} qui importerait \texttt{etl/} dans le process Airflow lui-même.
 
 \begin{figure}[H]
 \centering
@@ -336,9 +340,9 @@ L'orchestration (Sprint 3, Airflow) prévoit un DAG par source plus un DAG de co
 \node[box] (extract) {Extraction\\\scriptsize \texttt{extract/extract.py}\\\scriptsize Kaggle, API ExerciseDB};
 \node[box, right=of extract] (transform) {Transformation\\\scriptsize \texttt{transform/clean\_*.py}\\\scriptsize renommage colonnes, typage};
 \node[box, right=of transform] (normalize) {Normalisation\\\scriptsize valeurs manquantes (\texttt{Faker.seed()}), valeurs contrôlées (\texttt{source}, \texttt{sex})};
-\node[box, right=of normalize] (load) {Chargement\\\scriptsize \texttt{load/} (en cours)\\\scriptsize upsert idempotent / \texttt{pgcopy}};
+\node[box, right=of normalize] (load) {Chargement\\\scriptsize \texttt{load/postgres\_loader.py}\\\scriptsize upsert idempotent (staging + \texttt{ON CONFLICT})};
 \node[hub, below=1.3cm of load] (pg) {PostgreSQL};
-\node[hub, above=1.4cm of transform, xshift=1.75cm] (airflow) {Airflow\\\scriptsize orchestration, 1 DAG par source};
+\node[hub, above=1.4cm of transform, xshift=1.75cm] (airflow) {Airflow\\\scriptsize DAG unique, \texttt{BashOperator} + venv isolé};
 \node[box, below=1.3cm of extract, draw=red!50!black, fill=red!5] (dq) {\texttt{data\_quality\_log}\\\scriptsize DAG qualité (anomalies)};
 
 \draw[rel, ->] (extract) -- (transform);
@@ -352,7 +356,7 @@ L'orchestration (Sprint 3, Airflow) prévoit un DAG par source plus un DAG de co
 \draw[rel, ->, relD] (normalize) -- (dq);
 
 \end{tikzpicture}}
-\caption{Flux ETL : extraction (téléchargement brut vers \texttt{etl/data/}), transformation (renommage/typage), normalisation (remplissage déterministe des colonnes obligatoires absentes de la source, contrôle des valeurs), chargement (upsert idempotent, une fois \texttt{load/} terminé) — orchestré par Airflow, avec journalisation des anomalies dans \texttt{data\_quality\_log}.}
+\caption{Flux ETL : extraction (téléchargement brut vers \texttt{etl/data/}), transformation (renommage/typage), normalisation (remplissage déterministe des colonnes obligatoires absentes de la source, contrôle des valeurs), chargement (upsert idempotent) — orchestré par le DAG Airflow unique \texttt{healthai\_etl\_pipeline}, avec journalisation des anomalies réelles dans \texttt{data\_quality\_log}.}
 \label{fig:etl-flow}
 \end{figure}
 
@@ -379,7 +383,7 @@ Point de vigilance transverse, documenté dans \texttt{docs/plan\_de\_developpem
 
 \subsection{Qualité des données}
 
-\texttt{data\_quality\_log} centralise les anomalies détectées par l'ETL (Sprint 3, DAG \texttt{dag\_quality\_check.py}) : table source, ligne concernée le cas échéant, règle déclenchée, sévérité (\texttt{info}/\texttt{warning}/\texttt{error}/\texttt{critical}), message. Consultation, filtrage et résolution manuelle des anomalies via l'interface admin (Sprint 5, \S\ref{sec:admin-interface}). La contrainte \texttt{chk\_data\_quality\_log\_resolution\_consistency} garantit qu'une anomalie non résolue ne porte ni \texttt{resolved\_at} ni \texttt{resolved\_by} — cohérence vérifiée par test (\texttt{tests/data\_quality/test\_schema.py}).
+\texttt{data\_quality\_log} centralise les anomalies détectées par l'ETL (Sprint 3, tâche \texttt{quality\_check} du DAG \texttt{healthai\_etl\_pipeline}, \texttt{etl/quality/checks.py}) : table source, ligne concernée le cas échéant, règle déclenchée, sévérité (\texttt{info}/\texttt{warning}/\texttt{error}/\texttt{critical}), message. Consultation, filtrage et résolution manuelle des anomalies via l'interface admin (Sprint 5, \S\ref{sec:admin-interface}). La contrainte \texttt{chk\_data\_quality\_log\_resolution\_consistency} garantit qu'une anomalie non résolue ne porte ni \texttt{resolved\_at} ni \texttt{resolved\_by} — cohérence vérifiée par test (\texttt{tests/data\_quality/test\_schema.py}).
 
 % =============================================================================
 \section{API REST}
@@ -458,18 +462,20 @@ Limitation assumée, propre au plan gratuit self-hosted : la personnalisation vi
 \label{sec:docker}
 % =============================================================================
 
-Objectif Sprint 6 : \texttt{docker compose up} $\rightarrow$ environnement fonctionnel en moins de 30 minutes, une seule commande. Quatre services (\texttt{docker-compose.yml}) :
+Objectif Sprint 6 : \texttt{docker compose up} $\rightarrow$ environnement fonctionnel en moins de 30 minutes, une seule commande. Sept services (\texttt{docker-compose.yml}) :
 
 \begin{itemize}[leftmargin=1.4em]
-  \item \textbf{postgres} (image officielle 16) — healthcheck \texttt{pg\_isready}, condition de démarrage pour les services suivants.
+  \item \textbf{postgres} (image officielle 16) — healthcheck \texttt{pg\_isready}, condition de démarrage pour les services suivants. Au tout premier démarrage (volume vierge), \texttt{database/init/*.sql} crée aussi les bases \texttt{metabase} et \texttt{airflow}, séparées de \texttt{healthai\_coach}.
   \item \textbf{db-init} — conteneur à usage unique (\texttt{service\_completed\_successfully}) : applique les migrations Alembic puis peuple la base via \texttt{database/seed/seed\_data.py} (données fictives, dev/démo).
   \item \textbf{admin\_interface} — démarre une fois \texttt{db-init} terminé avec succès, expose le port 7860.
   \item \textbf{metabase} — image officielle, même dépendance à \texttt{db-init}, expose le port 3000 ; connexion à PostgreSQL configurée une seule fois manuellement au premier lancement (Metabase n'expose pas d'API de pré-configuration).
+  \item \textbf{airflow-init} — conteneur à usage unique : migre la base de métadonnées Airflow et crée le compte admin, via l'entrypoint officiel de l'image (\texttt{\_AIRFLOW\_DB\_UPGRADE}, \texttt{\_AIRFLOW\_WWW\_USER\_CREATE}).
+  \item \textbf{airflow-webserver} / \textbf{airflow-scheduler} — démarrent une fois \texttt{airflow-init} terminé, exposent l'UI sur le port 8080. \texttt{LocalExecutor} + base \texttt{airflow} partagée sur le postgres du projet plutôt que le stack \texttt{CeleryExecutor}+Redis complet vu en formation (config commune factorisée via \texttt{x-airflow-common}, même principe que le patron officiel Airflow) : un DAG unique ne justifie pas plusieurs workers, et la machine de démo n'a pas la RAM pour 7 services Airflow en plus du reste de la stack applicative.
 \end{itemize}
 
-\texttt{api} et \texttt{airflow} restent en stub commenté dans le compose au moment de la rédaction, en attente des \texttt{Dockerfile} des équipes concernées — les variables d'environnement correspondantes sont déjà prévues dans \texttt{.env.example}.
+\texttt{api} reste en stub commenté dans le compose au moment de la rédaction, en attente du \texttt{Dockerfile} de l'équipe API (Rôle B) — les variables d'environnement sont déjà prévues dans \texttt{.env.example}.
 
-\paragraph{Point de vigilance — \texttt{db-init} ne deviendra pas le vrai pipeline ETL.} \texttt{db-init} exécute \texttt{seed\_data.py}, qui commence par un \texttt{TRUNCATE ... CASCADE} avant repeuplement : adapté au dev local et à la démo, mais incompatible avec le vrai pipeline (\texttt{etl/load}, Sprint 2--3), conçu pour tourner de façon récurrente via des DAG Airflow planifiés et upserter sans jamais tronquer. Le jour où l'ETL réel alimente la base avec de vraies données, laisser \texttt{seed\_data.py} dans \texttt{db-init} effacerait tout à chaque \texttt{docker compose up}. Décision non encore tranchée à date de rédaction, deux options documentées (\texttt{docs/guide\_deploiement.md}) : retirer \texttt{seed\_data.py} de \texttt{db-init} et ne garder que les migrations, ou conditionner son exécution à une variable d'environnement dédiée réservée aux environnements de démo.
+\paragraph{Point de vigilance — \texttt{db-init} ne deviendra pas le vrai pipeline ETL.} \texttt{db-init} exécute \texttt{seed\_data.py}, qui commence par un \texttt{TRUNCATE ... CASCADE} avant repeuplement : adapté au dev local et à la démo, mais incompatible avec le vrai pipeline (\texttt{etl/load}, Sprint 2), conçu pour upserter sans jamais tronquer et tourner de façon récurrente via le DAG Airflow \texttt{healthai\_etl\_pipeline} (Sprint 3). \textbf{Confirmé empiriquement, pas seulement théorique} : en testant le DAG (extraction réelle Kaggle/ExerciseDB, 2851 \texttt{users}, 645 \texttt{food\_items}, 404 \texttt{exercises} chargés), un simple redémarrage d'\texttt{admin\_interface} a redéclenché \texttt{db-init} qui a immédiatement tout effacé pour revenir aux 101/50/4 lignes de démo. Décision toujours non tranchée à date de rédaction, deux options documentées (\texttt{docs/guide\_deploiement.md}) : retirer \texttt{seed\_data.py} de \texttt{db-init} et ne garder que les migrations, ou conditionner son exécution à une variable d'environnement dédiée réservée aux environnements de démo.
 
 \begin{figure}[H]
 \centering
@@ -495,13 +501,13 @@ Objectif Sprint 6 : \texttt{docker compose up} $\rightarrow$ environnement fonct
 \texttt{tests/data\_quality/} & Schéma SQL : tables, FK, CHECK, cascades & 1 \\
 \texttt{tests/admin\_interface/} & Interface admin : logique pure + DB réelle & 3 \\
 \texttt{tests/api/} & Auth, users, organizations, subscriptions, contraintes & 7 \\
-\texttt{tests/etl/} & Fonctions \texttt{transform} (entrées mockées) & 2 \\
+\texttt{tests/etl/} & Fonctions \texttt{transform} (mockées) + \texttt{quality/checks.py} (DB réelle) & 3 \\
 \bottomrule
 \end{tabular}
-\caption{Suite de tests (118 tests au moment de la rédaction), \texttt{pytest}.}
+\caption{Suite de tests (141 tests au moment de la rédaction), \texttt{pytest}.}
 \end{table}
 
-Les tests \texttt{data\_quality} et \texttt{admin\_interface} s'exécutent contre un PostgreSQL jetable (schéma reconstruit à chaque run depuis \texttt{ddl\_postgres.sql}) plutôt que des mocks, précisément parce que les contraintes \texttt{CHECK}/\texttt{FOREIGN KEY} sont une partie significative des règles métier du projet (cf. \S3.2) : un mock ne les vérifie pas. Cette différence de méthode s'est révélée concrète en cours de développement — une valeur \texttt{'Other'} (majuscule) produite par le module \texttt{transform} de l'ETL passait les 4 tests unitaires du module (entrées mockées) mais violait la contrainte \texttt{CHECK} réelle en base, détecté uniquement par insertion effective lors de la relecture de la PR correspondante.
+Les tests \texttt{data\_quality}, \texttt{admin\_interface} et \texttt{etl/test\_quality\_checks.py} s'exécutent contre un PostgreSQL jetable (schéma reconstruit à chaque run depuis \texttt{ddl\_postgres.sql}) plutôt que des mocks, précisément parce que les contraintes \texttt{CHECK}/\texttt{FOREIGN KEY} sont une partie significative des règles métier du projet (cf. \S3.2) : un mock ne les vérifie pas. Cette différence de méthode s'est révélée concrète en cours de développement — une valeur \texttt{'Other'} (majuscule) produite par le module \texttt{transform} de l'ETL passait les 4 tests unitaires du module (entrées mockées) mais violait la contrainte \texttt{CHECK} réelle en base, détecté uniquement par insertion effective lors de la relecture de la PR correspondante.
 
 \subsection{Pipeline CI}
 
@@ -517,7 +523,8 @@ GitHub Actions (\texttt{.github/workflows/ci.yml}), déclenché sur \texttt{pull
   \item \textbf{Les tests mockés ne remplacent pas une vraie base} — une valeur \texttt{'Other'} produite par l'ETL passait 4/4 tests unitaires (entrées mockées) mais violait une contrainte \texttt{CHECK} réelle ; seule une insertion contre un PostgreSQL jetable l'a révélée (cf. \S3.2, \S\ref{sec:tests}). Décision prise en conséquence : les modules touchant au schéma sont désormais systématiquement re-testés contre une vraie base avant fusion, pas seulement via les tests unitaires du module.
   \item \textbf{Ma propre vérification manuelle de contraste RGAA était incomplète} — j'avais initialement validé le thème Gradio « à l'œil » sur quelques couleurs, en manquant les couleurs de texte \texttt{info=}/labels réellement utilisées. Un audit automatisé (\texttt{axe-core}) a révélé l'erreur (2,56:1 au lieu de 4,5:1 requis) — corrigé depuis (cf. \S\ref{sec:admin-interface}). À retenir : l'automatisation prime sur la relecture manuelle pour ce type de vérification.
   \item \textbf{Reproduction fidèle de la CI} — un premier échec CI (\texttt{ModuleNotFoundError: gradio}) n'était pas reproductible en local parce que l'environnement de test local avait plus de dépendances installées que la CI réelle (tous les \texttt{requirements.txt} du dépôt, alors que la CI n'en installe que deux). Depuis, toute validation de correctif reproduit exactement la séquence de commandes CI dans un environnement vierge avant d'être considérée acquise.
-  \item \textbf{\texttt{db-init} vs pipeline ETL réel} — \texttt{db-init} (démo/dev) et le futur chargement réel (Airflow, upsert) sont structurellement incompatibles (\texttt{TRUNCATE} vs jamais de \texttt{TRUNCATE}), identifié et documenté (\S\ref{sec:docker}) avant qu'il ne cause un incident, mais la bascule elle-même reste à trancher.
+  \item \textbf{\texttt{db-init} vs pipeline ETL réel, confirmé en conditions réelles} — le risque théorique identifié dès la PR \#44 (\texttt{TRUNCATE} de \texttt{db-init} vs upsert jamais destructeur du vrai pipeline) s'est concrètement produit en testant le DAG Airflow : un redémarrage anodin d'\texttt{admin\_interface} a effacé des données réelles fraîchement chargées (cf. \S\ref{sec:docker}). La bascule (retirer \texttt{seed\_data.py} de \texttt{db-init} ou la conditionner) reste à trancher, mais n'est plus un risque abstrait pour la suite du projet.
+  \item \textbf{Conflit de version SQLAlchemy avec Airflow} — Airflow 2.10.5 exige \texttt{SQLAlchemy<2.0} en interne, alors que le reste du projet (y compris \texttt{etl/}) utilise \texttt{2.0.51} depuis le début. Installer les dépendances ETL dans le même environnement Python que Airflow les aurait fait cohabiter et aurait risqué de casser le webserver/scheduler — détecté via les avertissements \texttt{pip} au moment du build de l'image, avant tout déploiement. Résolu par un venv Python isolé à l'intérieur de l'image Airflow, les tâches du DAG l'invoquant en sous-processus plutôt que d'importer \texttt{etl/} dans le process Airflow.
 \end{itemize}
 
 \subsection{Points positifs}
@@ -533,9 +540,9 @@ GitHub Actions (\texttt{.github/workflows/ci.yml}), déclenché sur \texttt{pull
 \section{Conclusion}
 % =============================================================================
 
-Le backend HealthAI Coach couvre, à date de rédaction, un schéma PostgreSQL de 16 tables avec ses migrations Alembic, une API REST authentifiée (utilisateurs, journaux nutrition/activité, abonnements, routes IA prêtes pour un microservice pas encore déployé), un pipeline ETL dont l'extraction et la transformation sont terminées et testées (le chargement idempotent reste en cours), une interface d'administration de la qualité des données auditée RGAA, un dashboard Metabase, et une conteneurisation \texttt{docker compose} permettant de démarrer l'ensemble (hors \texttt{api}/\texttt{airflow}, en attente de leurs \texttt{Dockerfile}) en une seule commande.
+Le backend HealthAI Coach couvre, à date de rédaction, un schéma PostgreSQL de 16 tables avec ses migrations Alembic, une API REST authentifiée (utilisateurs, journaux nutrition/activité, abonnements, routes IA prêtes pour un microservice pas encore déployé), un pipeline ETL complet et orchestré (extraction, transformation, chargement idempotent et contrôle qualité enchaînés par un DAG Airflow testé de bout en bout contre des données réelles), une interface d'administration de la qualité des données auditée RGAA, un dashboard Metabase, et une conteneurisation \texttt{docker compose} (sept services) permettant de démarrer l'ensemble — hors \texttt{api}, en attente de son \texttt{Dockerfile} — en une seule commande.
 
-Le principal facteur limitant a été le temps disponible dans le cadre de cette formation, pas une difficulté technique bloquante : le chargement ETL réel et son orchestration Airflow restent à finaliser, le microservice IA n'est qu'esquissé (stub côté API), et certaines limitations d'accessibilité du composant \texttt{Dataframe} de Gradio ne sont pas corrigibles sans reconstruire le composant lui-même. Le choix a été fait de prioriser la robustesse de ce qui est livré (contraintes en base, tests contre une vraie base de données, CI reproductible) plutôt que de couvrir l'intégralité du périmètre imaginé au démarrage — un compromis assumé plutôt qu'un oubli.
+Le principal facteur limitant a été le temps disponible dans le cadre de cette formation, pas une difficulté technique bloquante : le microservice IA n'est qu'esquissé (stub côté API), l'incompatibilité entre \texttt{db-init} et le vrai pipeline ETL est identifiée et documentée mais pas encore tranchée, et certaines limitations d'accessibilité du composant \texttt{Dataframe} de Gradio ne sont pas corrigibles sans reconstruire le composant lui-même. Le choix a été fait de prioriser la robustesse de ce qui est livré (contraintes en base, tests contre une vraie base de données, CI reproductible, pipeline ETL vérifié en conditions réelles plutôt que supposé fonctionnel) plutôt que de couvrir l'intégralité du périmètre imaginé au démarrage — un compromis assumé plutôt qu'un oubli.
 
 % =============================================================================
 \appendix
