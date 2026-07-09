@@ -132,11 +132,11 @@
 \section{Modélisation des données}
 % =============================================================================
 
-Le schéma relationnel (\texttt{database/schema/ddl\_postgres.sql}) compte 14 tables, réparties en quatre domaines fonctionnels autour de l'entité centrale \texttt{USERS} : nutrition, activité physique, suivi déclaratif de santé, et abonnements. Chaque table porte des commentaires SQL (\texttt{COMMENT ON TABLE/COLUMN}) documentant directement en base la signification de chaque champ — en particulier les conventions non triviales comme les clés d'idempotence \texttt{UNIQUE(source, external\_id)}.
+Le schéma relationnel (\texttt{database/schema/ddl\_postgres.sql}) compte 16 tables, réparties en cinq domaines fonctionnels autour de l'entité centrale \texttt{USERS} : nutrition, activité physique, suivi déclaratif de santé, abonnements, et contenu généré par IA. Chaque table porte des commentaires SQL (\texttt{COMMENT ON TABLE/COLUMN}) documentant directement en base la signification de chaque champ — en particulier les conventions non triviales comme les clés d'idempotence \texttt{UNIQUE(source, external\_id)}.
 
 \subsection{Modèle Conceptuel de Données — périmètre OLTP}
 
-La figure~\ref{fig:mcd-core} présente le cœur du modèle : nutrition, activité physique et suivi de santé déclaratif, tous rattachés à \texttt{USERS}. La figure~\ref{fig:mcd-subscriptions} présente le domaine abonnements, ajouté dans un second temps pour l'offre B2C/B2B.
+La figure~\ref{fig:mcd-core} présente le cœur du modèle : nutrition, activité physique, suivi de santé déclaratif et contenu généré par IA (\texttt{workout\_plans}/\texttt{nutrition\_plans}), tous rattachés à \texttt{USERS}. La figure~\ref{fig:mcd-subscriptions} présente le domaine abonnements, ajouté dans un second temps pour l'offre B2C/B2B.
 
 \begin{figure}[H]
 \centering
@@ -179,6 +179,12 @@ La figure~\ref{fig:mcd-core} présente le cœur du modèle : nutrition, activit�
 \node[entity sm, right=0.5cm of fit] (rec) {\eh{DIET\_\\RECOMMEN\-DATIONS}
 \nodepart{two}\ea{diet\_recommendation\_id (PK)\\user\_id (FK)\\recommendation...}};
 
+\node[entity sm, right=0.5cm of rec] (wplan) {\eh{WORKOUT\_\\PLANS}
+\nodepart{two}\ea{workout\_plan\_id (PK)\\user\_id (FK)\\goal, plan\_text...}};
+
+\node[entity sm, right=0.5cm of wplan] (nplan) {\eh{NUTRITION\_\\PLANS}
+\nodepart{two}\ea{nutrition\_plan\_id (PK)\\user\_id (FK)\\goal, plan\_text...}};
+
 % Relations — cardinalités Merise (min,max), lues côté entité adjacente
 \draw[rel] (food) -- (nutlog) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
 \draw[rel] (nutlog.east) -- ++(0.6,0) |- (users.west) node[card, pos=0.05]{(1,1)} node[card, pos=0.95]{(0,N)};
@@ -191,6 +197,8 @@ La figure~\ref{fig:mcd-core} présente le cœur du modèle : nutrition, activit�
 \draw[rel] (users) -- (fit) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
 \draw[rel] (users) -- (rec) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
 \draw[relD] (users) -- (dql) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(0,1)};
+\draw[rel] (users) -- (wplan) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (users) -- (nplan) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
 
 \end{tikzpicture}}
 
@@ -198,7 +206,7 @@ La figure~\ref{fig:mcd-core} présente le cœur du modèle : nutrition, activit�
 \noindent\tikz[baseline=-0.5ex]{\draw[rel] (0,0) -- (0.6,0);} FK obligatoire (\texttt{NOT NULL}) \hspace{2em}
 \tikz[baseline=-0.5ex]{\draw[relD] (0,0) -- (0.6,0);} FK optionnelle (\texttt{NULL} autorisé)
 
-\caption{MCD — cœur du modèle (nutrition, activité physique, suivi de santé). Cardinalités au format Merise (min,max), lues côté entité adjacente.}
+\caption{MCD — cœur du modèle (nutrition, activité physique, suivi de santé, contenu IA). Cardinalités au format Merise (min,max), lues côté entité adjacente.}
 \label{fig:mcd-core}
 \end{figure}
 
@@ -295,7 +303,10 @@ Point de vigilance transverse, documenté dans \texttt{docs/plan\_de\_developpem
 % TODO : users, nutrition, exercises, subscriptions, organizations.
 
 \subsection{Abonnements et microservices IA}
-% TODO : tiers free/premium/premium_plus, B2B, statut du volet IA.
+
+Quatre paliers (\texttt{subscriptions.tier}) : \texttt{free} (par défaut à l'inscription), \texttt{premium}, \texttt{premium\_plus}, et \texttt{b2b} (rattaché à une \texttt{organization}, provisionné par un admin — pas de self-service pour ce palier). Une seule souscription \texttt{active} à la fois par utilisateur (index unique partiel), changement de palier = clôture de l'ancienne + ouverture d'une nouvelle.
+
+Le contenu IA (\texttt{POST /ai/diet-recommendations}, \texttt{/ai/workout-plans}, \texttt{/ai/nutrition-plans}) est réservé aux paliers payants via une dépendance dédiée (\texttt{CurrentPremiumUser}, \texttt{api/core/deps.py}) : 403 pour un compte \texttt{free}, 401 sans authentification. Le microservice IA lui-même n'est pas encore déployé (cf. issue \#49) : les routes et le stockage (tables \texttt{workout\_plans}, \texttt{nutrition\_plans}, plus le \texttt{diet\_recommendations} existant) sont préparés à l'avance, avec un client stub (\texttt{api/services/ai\_client.py}) reproduisant la signature du futur appel HTTP réel. Objectif : brancher le vrai microservice n'impliquera de changer que ce fichier, ni les routers ni le contrat \texttt{POST /ai/...} exposé aux clients. Vérifié par 136 tests réels contre PostgreSQL (gating par palier, persistance, isolation des données par utilisateur), cf. \S\ref{sec:tests}.
 
 % =============================================================================
 \section{Interface admin (Gradio) et dashboard Metabase}
