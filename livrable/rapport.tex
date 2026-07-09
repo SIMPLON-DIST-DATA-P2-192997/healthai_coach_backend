@@ -113,20 +113,67 @@
 % =============================================================================
 \section{Introduction}
 % =============================================================================
-% TODO : contexte du projet, objectifs (coaching santé : nutrition, exercice,
-% suivi biométrique), périmètre fonctionnel, répartition des rôles.
+
+HealthAI Coach est une plateforme de coaching santé : suivi nutritionnel, suivi de l'activité physique, relevés biométriques et profil médical déclaratif d'un utilisateur, avec génération de recommandations personnalisées (diététiques, puis plans d'entraînement/nutrition via un microservice IA à venir). Ce dépôt couvre exclusivement le \textbf{backend data} du projet : modélisation et administration de la base de données, pipeline ETL d'ingestion depuis des sources hétérogènes (Kaggle, API publique d'exercices), API REST, supervision de la qualité des données, et conteneurisation de l'ensemble — pas le frontend utilisateur final, hors périmètre de cette formation.
+
+Le modèle économique conditionne plusieurs choix techniques documentés dans ce rapport : offre freemium (\texttt{free}/\texttt{premium}/\texttt{premium\_plus}) avec fonctionnalités IA réservées aux paliers payants, et offre B2B en marque blanche pour des organisations partenaires (salles de sport, mutuelles, entreprises), provisionnée par un administrateur plutôt qu'en self-service.
+
+Travail réparti en trois rôles : Rôle A — architecture, base de données, interface admin (qualité des données), dashboard Metabase et dockerisation (Alexandre Laugier) ; Rôle B — API REST FastAPI (Florian) ; Rôle C — pipeline ETL et orchestration Airflow (Johane Decamps, William Mibelli). Le développement suit un flux Pull Request systématique (une étape = une PR, tests obligatoires, revue avant fusion) détaillé dans \texttt{docs/plan\_de\_developpement.md}.
 
 % =============================================================================
 \section{Architecture du système}
 % =============================================================================
 
 \subsection{Vue d'ensemble}
-% TODO : schéma d'architecture globale (postgres, api, etl/airflow,
-% admin_interface, metabase, docker compose).
+
+\begin{figure}[H]
+\centering
+\resizebox{0.85\textwidth}{!}{%
+\begin{tikzpicture}[node distance=1cm and 1.6cm, >=Stealth, box/.style={draw=dbblue, line width=0.8pt, rounded corners=2pt, fill=dbblue!6, minimum height=1.1cm, minimum width=2.6cm, align=center, font=\footnotesize}]
+
+\node[box] (kaggle) {Sources externes\\\scriptsize Kaggle, API ExerciseDB};
+\node[box, right=of kaggle] (etl) {ETL\\\scriptsize extract / transform / load};
+\node[box, above=0.6cm of etl] (airflow) {Airflow\\\scriptsize orchestration, DAG};
+\node[box, right=of etl] (pg) {PostgreSQL\\\scriptsize 16 tables};
+\node[box, above right=0.3cm and 1.4cm of pg] (api) {API REST\\\scriptsize FastAPI};
+\node[box, below right=0.3cm and 1.4cm of pg] (admin) {Interface admin\\\scriptsize Gradio};
+\node[box, right=2.6cm of admin] (metabase) {Metabase\\\scriptsize dashboard KPI};
+
+\draw[rel, ->] (kaggle) -- (etl);
+\draw[rel, ->] (airflow) -- (etl);
+\draw[rel, ->] (etl) -- (pg);
+\draw[rel, ->] (pg) -- (api);
+\draw[rel, ->] (pg) -- (admin);
+\draw[rel, ->] (pg) -- (metabase);
+
+\end{tikzpicture}}
+\caption{Vue d'ensemble — l'ETL alimente PostgreSQL (orchestré par Airflow), consommé en aval par l'API REST, l'interface admin et Metabase. Tout le périmètre (hors \texttt{api}/\texttt{airflow}, en attente des Dockerfile des équipes concernées à date de rédaction) est conteneurisé via \texttt{docker compose} (cf. \S\ref{sec:docker}).}
+\label{fig:archi}
+\end{figure}
 
 \subsection{Choix technologiques}
-% TODO : PostgreSQL, FastAPI, Airflow, Gradio, Metabase, Docker — justification
-% de chaque choix.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Composant} & \textbf{Technologie} \\
+\midrule
+Base de données & PostgreSQL \\
+Migrations & Alembic \\
+Orchestration & Apache Airflow \\
+API & FastAPI (SQLAlchemy, Pydantic, JWT) \\
+Dashboard & Metabase \\
+Interface admin & Gradio \\
+Conteneurisation & Docker / Docker Compose \\
+CI & GitHub Actions \\
+\bottomrule
+\end{tabular}
+\caption{Stack technique (\texttt{README.md}).}
+\end{table}
+
+Deux choix méritent d'être justifiés au-delà du tableau : \textbf{PostgreSQL} plutôt qu'un SGBD NoSQL, parce que le domaine (utilisateurs, journaux nutrition/exercice historisés, contraintes d'intégrité inter-tables) est structurellement relationnel — les nombreuses contraintes \texttt{CHECK}/\texttt{FOREIGN KEY} qui portent une partie significative des règles métier (cf. \S3.2) auraient dû être réimplémentées côté application dans un magasin sans schéma. \textbf{Gradio} plutôt qu'un framework front complet (React, Streamlit) pour l'interface admin, parce qu'il s'agit d'un outil interne à faible surface (un seul écran, quelques formulaires) où la rapidité de mise en œuvre prime sur la personnalisation visuelle — au prix de limitations d'accessibilité propres au composant \texttt{Dataframe}, documentées en \S\ref{sec:admin-interface}.
 
 % =============================================================================
 \section{Modélisation des données}
@@ -278,6 +325,36 @@ Le pipeline suit un découpage classique en trois étapes, une responsabilité p
 \end{itemize}
 
 L'orchestration (Sprint 3, Airflow) prévoit un DAG par source plus un DAG de contrôle qualité (\texttt{dag\_quality\_check.py}) journalisant les anomalies dans \texttt{data\_quality\_log}, activé une fois chaque module \texttt{transform}/\texttt{load} testé et mergé.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[node distance=0.9cm and 1.2cm, >=Stealth,
+  box/.style={draw=dbblue, line width=0.8pt, rounded corners=2pt, fill=dbblue!6, minimum height=1.3cm, minimum width=3.1cm, align=center, font=\footnotesize},
+  hub/.style={box, fill=dbblue!16}]
+
+\node[box] (extract) {Extraction\\\scriptsize \texttt{extract/extract.py}\\\scriptsize Kaggle, API ExerciseDB};
+\node[box, right=of extract] (transform) {Transformation\\\scriptsize \texttt{transform/clean\_*.py}\\\scriptsize renommage colonnes, typage};
+\node[box, right=of transform] (normalize) {Normalisation\\\scriptsize valeurs manquantes (\texttt{Faker.seed()}), valeurs contrôlées (\texttt{source}, \texttt{sex})};
+\node[box, right=of normalize] (load) {Chargement\\\scriptsize \texttt{load/} (en cours)\\\scriptsize upsert idempotent / \texttt{pgcopy}};
+\node[hub, below=1.3cm of load] (pg) {PostgreSQL};
+\node[hub, above=1.4cm of transform, xshift=1.75cm] (airflow) {Airflow\\\scriptsize orchestration, 1 DAG par source};
+\node[box, below=1.3cm of extract, draw=red!50!black, fill=red!5] (dq) {\texttt{data\_quality\_log}\\\scriptsize DAG qualité (anomalies)};
+
+\draw[rel, ->] (extract) -- (transform);
+\draw[rel, ->] (transform) -- (normalize);
+\draw[rel, ->] (normalize) -- (load);
+\draw[rel, ->] (load) -- (pg);
+\draw[rel, ->] (airflow) -- (transform.north);
+\draw[rel, ->] (airflow) -- (normalize.north);
+\draw[rel, ->] (airflow.west) -| (extract.north);
+\draw[rel, ->] (airflow.east) -| (load.north);
+\draw[rel, ->, relD] (normalize) -- (dq);
+
+\end{tikzpicture}}
+\caption{Flux ETL : extraction (téléchargement brut vers \texttt{etl/data/}), transformation (renommage/typage), normalisation (remplissage déterministe des colonnes obligatoires absentes de la source, contrôle des valeurs), chargement (upsert idempotent, une fois \texttt{load/} terminé) — orchestré par Airflow, avec journalisation des anomalies dans \texttt{data\_quality\_log}.}
+\label{fig:etl-flow}
+\end{figure}
 
 \subsection{Données sources}
 
@@ -435,20 +512,78 @@ GitHub Actions (\texttt{.github/workflows/ci.yml}), déclenché sur \texttt{pull
 % =============================================================================
 
 \subsection{Obstacles techniques rencontrés}
-% TODO.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Les tests mockés ne remplacent pas une vraie base} — une valeur \texttt{'Other'} produite par l'ETL passait 4/4 tests unitaires (entrées mockées) mais violait une contrainte \texttt{CHECK} réelle ; seule une insertion contre un PostgreSQL jetable l'a révélée (cf. \S3.2, \S\ref{sec:tests}). Décision prise en conséquence : les modules touchant au schéma sont désormais systématiquement re-testés contre une vraie base avant fusion, pas seulement via les tests unitaires du module.
+  \item \textbf{Ma propre vérification manuelle de contraste RGAA était incomplète} — j'avais initialement validé le thème Gradio « à l'œil » sur quelques couleurs, en manquant les couleurs de texte \texttt{info=}/labels réellement utilisées. Un audit automatisé (\texttt{axe-core}) a révélé l'erreur (2,56:1 au lieu de 4,5:1 requis) — corrigé depuis (cf. \S\ref{sec:admin-interface}). À retenir : l'automatisation prime sur la relecture manuelle pour ce type de vérification.
+  \item \textbf{Reproduction fidèle de la CI} — un premier échec CI (\texttt{ModuleNotFoundError: gradio}) n'était pas reproductible en local parce que l'environnement de test local avait plus de dépendances installées que la CI réelle (tous les \texttt{requirements.txt} du dépôt, alors que la CI n'en installe que deux). Depuis, toute validation de correctif reproduit exactement la séquence de commandes CI dans un environnement vierge avant d'être considérée acquise.
+  \item \textbf{\texttt{db-init} vs pipeline ETL réel} — \texttt{db-init} (démo/dev) et le futur chargement réel (Airflow, upsert) sont structurellement incompatibles (\texttt{TRUNCATE} vs jamais de \texttt{TRUNCATE}), identifié et documenté (\S\ref{sec:docker}) avant qu'il ne cause un incident, mais la bascule elle-même reste à trancher.
+\end{itemize}
 
 \subsection{Points positifs}
-% TODO.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item Contraintes d'intégrité (\texttt{CHECK}, \texttt{FOREIGN KEY}, index uniques partiels) portées directement par PostgreSQL plutôt que dans le code applicatif : les règles métier survivent à n'importe quel point d'entrée (API, ETL, script ad hoc), pas seulement à un chemin de code particulier.
+  \item Schéma auto-documenté (\texttt{COMMENT ON TABLE/COLUMN}) : les conventions non triviales (clé d'upsert, distinction cholestérol alimentaire/sanguin, etc.) sont lisibles depuis la base elle-même, pas seulement dans un document externe qui peut diverger du schéma réel.
+  \item Convention d'idempotence (\texttt{UNIQUE(source, external\_id)}, \texttt{Faker.seed()} déterministe) définie une fois puis reprise à l'identique par l'équipe ETL sur chaque nouvelle source, et par l'équipe API pour le pattern d'historisation (\texttt{diet\_recommendations} $\rightarrow$ \texttt{workout\_plans}/\texttt{nutrition\_plans}, cf. PR \#52).
+  \item Discipline de revue systématique (checkout isolé, tests rejoués contre PostgreSQL frais, jamais de confiance aveugle dans un diff ou un « les tests passent ») qui a détecté plusieurs bugs réels avant fusion plutôt qu'en production.
+\end{itemize}
 
 % =============================================================================
 \section{Conclusion}
 % =============================================================================
-% TODO.
+
+Le backend HealthAI Coach couvre, à date de rédaction, un schéma PostgreSQL de 16 tables avec ses migrations Alembic, une API REST authentifiée (utilisateurs, journaux nutrition/activité, abonnements, routes IA prêtes pour un microservice pas encore déployé), un pipeline ETL dont l'extraction et la transformation sont terminées et testées (le chargement idempotent reste en cours), une interface d'administration de la qualité des données auditée RGAA, un dashboard Metabase, et une conteneurisation \texttt{docker compose} permettant de démarrer l'ensemble (hors \texttt{api}/\texttt{airflow}, en attente de leurs \texttt{Dockerfile}) en une seule commande.
+
+Le principal facteur limitant a été le temps disponible dans le cadre de cette formation, pas une difficulté technique bloquante : le chargement ETL réel et son orchestration Airflow restent à finaliser, le microservice IA n'est qu'esquissé (stub côté API), et certaines limitations d'accessibilité du composant \texttt{Dataframe} de Gradio ne sont pas corrigibles sans reconstruire le composant lui-même. Le choix a été fait de prioriser la robustesse de ce qui est livré (contraintes en base, tests contre une vraie base de données, CI reproductible) plutôt que de couvrir l'intégralité du périmètre imaginé au démarrage — un compromis assumé plutôt qu'un oubli.
 
 % =============================================================================
 \appendix
 \section{Extrait du schéma SQL — tables principales}
 % =============================================================================
-% TODO.
+
+Extrait de \texttt{database/schema/ddl\_postgres.sql} illustrant les patterns récurrents du schéma : contraintes \texttt{CHECK} sur domaine de valeurs fermé, clé d'idempotence \texttt{UNIQUE}, contrainte de cohérence multi-colonnes, et FK optionnelle avec \texttt{ON DELETE SET NULL}.
+
+\begin{lstlisting}[style=sql]
+CREATE TABLE users (
+    user_id         SERIAL PRIMARY KEY,
+    email           VARCHAR(255) NOT NULL UNIQUE,
+    hashed_password VARCHAR(255) NOT NULL,
+    first_name      VARCHAR(100) NOT NULL,
+    last_name       VARCHAR(100) NOT NULL,
+    date_of_birth   DATE,
+    sex             VARCHAR(10) CHECK (sex IN ('F', 'M', 'other')),
+    is_admin        BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE food_items (
+    food_item_id    SERIAL PRIMARY KEY,
+    external_id     VARCHAR(100),
+    source          VARCHAR(50) NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    calories_kcal   NUMERIC(7,2) NOT NULL CHECK (calories_kcal >= 0),
+    ingested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (source, external_id)  -- cle d'upsert idempotent (cf. S3.2)
+);
+
+CREATE TABLE data_quality_log (
+    dq_log_id         BIGSERIAL PRIMARY KEY,
+    source_table      VARCHAR(100) NOT NULL,
+    rule_name         VARCHAR(150) NOT NULL,
+    severity          VARCHAR(20) NOT NULL
+                      CHECK (severity IN ('info', 'warning', 'error', 'critical')),
+    message           TEXT NOT NULL,
+    detected_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    resolved          BOOLEAN NOT NULL DEFAULT FALSE,
+    resolved_at       TIMESTAMPTZ,
+    resolved_by       INTEGER,
+    CONSTRAINT fk_data_quality_log_resolved_by
+        FOREIGN KEY (resolved_by) REFERENCES users(user_id) ON DELETE SET NULL,
+    CONSTRAINT chk_data_quality_log_resolution_consistency
+        CHECK (resolved = TRUE OR (resolved_at IS NULL AND resolved_by IS NULL))
+);
+\end{lstlisting}
 
 \end{document}
