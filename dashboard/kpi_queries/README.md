@@ -14,9 +14,10 @@ Toutes les vues utilisent `CREATE OR REPLACE VIEW` : rejouable sans risque aprè
 ## Vues disponibles
 
 **Nutrition & biométrie** (`nutrition_biometrics.sql`)
-- `vw_nutrition_meal_type_breakdown` — volume de journalisation par type de repas
-- `vw_nutrition_top_food_items` — aliments les plus journalisés
-- `vw_nutrition_logs_daily` — volume par utilisateur et par jour
+- `vw_nutrition_meal_type_breakdown` — volume de journalisation et calories consommées par type de repas
+- `vw_nutrition_top_food_items` — aliments les plus journalisés, avec calories totales
+- `vw_nutrition_logs_daily` — portions et calories consommées par utilisateur et par jour
+- `vw_nutrition_calories_by_category` — calories consommées agrégées par catégorie d'aliment
 - `vw_biometric_trend` — relevés biométriques avec IMC calculé
 - `vw_biometric_latest_per_user` — dernier relevé connu par utilisateur
 
@@ -25,9 +26,9 @@ Toutes les vues utilisent `CREATE OR REPLACE VIEW` : rejouable sans risque aprè
 - `vw_workout_sessions_weekly` — fréquence d'entraînement hebdomadaire
 - `vw_workout_sets_by_exercise` — popularité et charge moyenne par exercice
 
-## Limite connue : pas de KPI calories
+## KPI calories (résolu — migration 35edc0b38d0b)
 
-`food_items.calories_kcal` est exprimé pour une portion de référence (ex. *"Scrambled Eggs (2 large)"* = 180 kcal), pas pour 100 g. `serving_size_g` permettrait de ramener ça à un poids, mais n'est renseigné par aucune des 3 sources Kaggle du projet — vérifié sur les datasets complets, pas seulement les échantillons de seed. Mettre `nutrition_logs.quantity_g` à l'échelle des calories nécessiterait une hypothèse non validée (ex. "calories_kcal est pour 100g", ce qui est faux ici). Tant que cette donnée n'existe pas dans les sources, les vues nutrition s'en tiennent à `quantity_g` et à des comptages, toujours fiables.
+`food_items.calories_kcal` est exprimé pour une portion nommée (ex. *"Scrambled Eggs (2 large)"* = 180 kcal), pas pour 100 g. `serving_size_g` (jamais renseigné par aucune des 3 sources Kaggle) a été abandonné au profit de `nutrition_logs.portion_number` (décimal, ex. 1.5) : `calories_consommées = calories_kcal × portion_number`. Décision prise avec Johane/William (ETL) — voir le docstring de la migration pour le détail.
 
 ## Périmètre restant (reporté)
 

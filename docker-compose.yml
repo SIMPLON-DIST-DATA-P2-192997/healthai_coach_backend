@@ -1,7 +1,11 @@
-# Sprint 6 : postgres, admin_interface et metabase sont complets.
-# api et airflow restent en stub commenté, en attente des Dockerfile des
-# équipes concernées (Rôle C pour l'API, équipe ETL/Airflow pour l'orchestration).
+# Sprint 6 : postgres, db-init (migrations + seed + vues KPI), admin_interface
+# et metabase sont complets. api et airflow restent en stub commenté, en
+# attente des Dockerfile des équipes concernées (Rôle C pour l'API, équipe
+# ETL/Airflow pour l'orchestration).
 # Objectif Sprint 6 : `docker compose up` -> environnement fonctionnel en < 30 min
+# (une seule commande : postgres démarre, db-init peuple la base une fois
+# postgres prêt, puis admin_interface/metabase démarrent avec des données
+# déjà en place — cf. docs/guide_deploiement.md).
 version: "3.9"
 
 services:
@@ -9,7 +13,7 @@ services:
     image: postgres:16
     env_file: .env
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
@@ -18,6 +22,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  db-init:
+    build:
+      context: .
+      dockerfile: database/bootstrap/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   admin_interface:
     build:
@@ -29,8 +44,8 @@ services:
     ports:
       - "${ADMIN_INTERFACE_PORT}:7860"
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
   metabase:
     image: metabase/metabase:latest
@@ -44,8 +59,8 @@ services:
     ports:
       - "${METABASE_PORT}:3000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
   # api:
   #   Sprint 4 (Rôle C). Pas de Dockerfile côté api/ pour le moment —

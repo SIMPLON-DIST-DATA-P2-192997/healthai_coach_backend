@@ -71,8 +71,8 @@ def test_nutrition_logs_rejects_invalid_foreign_keys(cursor):
     with pytest.raises(psycopg2.errors.ForeignKeyViolation):
         cursor.execute(
             """
-            INSERT INTO nutrition_logs (user_id, food_item_id, quantity_g, meal_type, logged_at)
-            VALUES (999999, 999999, 100, 'lunch', now())
+            INSERT INTO nutrition_logs (user_id, food_item_id, portion_number, meal_type, logged_at)
+            VALUES (999999, 999999, 1.5, 'lunch', now())
             """
         )
 
@@ -100,8 +100,8 @@ def test_deleting_user_cascades_to_nutrition_logs(db_connection):
         )
         food_item_id = cur.fetchone()[0]
         cur.execute(
-            "INSERT INTO nutrition_logs (user_id, food_item_id, quantity_g, meal_type, logged_at) "
-            "VALUES (%s, %s, 100, 'lunch', now())",
+            "INSERT INTO nutrition_logs (user_id, food_item_id, portion_number, meal_type, logged_at) "
+            "VALUES (%s, %s, 1.5, 'lunch', now())",
             (user_id, food_item_id),
         )
         cur.execute("DELETE FROM users WHERE user_id = %s", (user_id,))

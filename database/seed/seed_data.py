@@ -81,15 +81,16 @@ def seed_food_items(cur):
         cur.execute(
             """
             INSERT INTO food_items
-                (external_id, source, name, calories_kcal, protein_g, carbs_g,
+                (external_id, source, name, category, calories_kcal, protein_g, carbs_g,
                  fat_g, fiber_g, sugar_g, sodium_mg, cholesterol_mg)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING food_item_id
             """,
             (
                 str(i),
                 "kaggle_daily_food_nutrition",
                 row["Food_Item"],
+                row["Category"],
                 to_float(row["Calories (kcal)"]),
                 to_float(row["Protein (g)"]),
                 to_float(row["Carbohydrates (g)"]),
@@ -323,13 +324,13 @@ def seed_illustrative_nutrition_logs(cur, user_ids, food_item_ids):
         for _ in range(2):
             cur.execute(
                 """
-                INSERT INTO nutrition_logs (user_id, food_item_id, quantity_g, meal_type, logged_at)
+                INSERT INTO nutrition_logs (user_id, food_item_id, portion_number, meal_type, logged_at)
                 VALUES (%s, %s, %s, %s, %s)
                 """,
                 (
                     user_id,
                     random.choice(food_item_ids),
-                    round(random.uniform(50, 300), 1),
+                    round(random.uniform(0.5, 3), 2),
                     random.choice(meal_types),
                     now - timedelta(days=random.randint(0, 7)),
                 ),
