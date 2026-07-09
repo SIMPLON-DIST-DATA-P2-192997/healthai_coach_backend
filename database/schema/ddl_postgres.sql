@@ -344,6 +344,38 @@ COMMENT ON COLUMN subscriptions.started_at IS 'Début de la souscription.';
 COMMENT ON COLUMN subscriptions.ended_at IS 'Fin de la souscription (résiliation ou changement de palier), optionnelle si toujours active.';
 COMMENT ON COLUMN subscriptions.created_at IS 'Date d''enregistrement de la ligne en base.';
 
+CREATE TABLE workout_plans (
+    workout_plan_id  BIGSERIAL PRIMARY KEY,
+    user_id          INTEGER NOT NULL,
+    goal             VARCHAR(255),
+    plan_text        TEXT NOT NULL,
+    generated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_workout_plans_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE workout_plans IS 'Plans d''entraînement générés par le microservice IA (palier Premium), historisés (1 utilisateur -> N plans dans le temps).';
+COMMENT ON COLUMN workout_plans.workout_plan_id IS 'Identifiant technique (clé primaire).';
+COMMENT ON COLUMN workout_plans.user_id IS 'Utilisateur destinataire du plan (FK users).';
+COMMENT ON COLUMN workout_plans.goal IS 'Objectif exprimé par l''utilisateur ayant motivé la génération (ex. ''perte de poids'', ''prise de masse''), si fourni.';
+COMMENT ON COLUMN workout_plans.plan_text IS 'Contenu du plan généré par le microservice IA — texte libre pour l''instant (cf. modele_donnees.md, à revoir une fois le contrat du microservice connu).';
+COMMENT ON COLUMN workout_plans.generated_at IS 'Date de génération du plan.';
+
+CREATE TABLE nutrition_plans (
+    nutrition_plan_id  BIGSERIAL PRIMARY KEY,
+    user_id            INTEGER NOT NULL,
+    goal               VARCHAR(255),
+    plan_text          TEXT NOT NULL,
+    generated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fk_nutrition_plans_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE nutrition_plans IS 'Plans nutritionnels générés par le microservice IA (palier Premium), historisés (1 utilisateur -> N plans dans le temps).';
+COMMENT ON COLUMN nutrition_plans.nutrition_plan_id IS 'Identifiant technique (clé primaire).';
+COMMENT ON COLUMN nutrition_plans.user_id IS 'Utilisateur destinataire du plan (FK users).';
+COMMENT ON COLUMN nutrition_plans.goal IS 'Objectif exprimé par l''utilisateur ayant motivé la génération (ex. ''végétarien riche en protéines''), si fourni.';
+COMMENT ON COLUMN nutrition_plans.plan_text IS 'Contenu du plan généré par le microservice IA — texte libre pour l''instant (cf. modele_donnees.md, à revoir une fois le contrat du microservice connu).';
+COMMENT ON COLUMN nutrition_plans.generated_at IS 'Date de génération du plan.';
+
 -- Index utiles pour les requêtes fréquentes (filtrage/tri par utilisateur + temps)
 CREATE INDEX idx_nutrition_logs_user_logged_at ON nutrition_logs (user_id, logged_at);
 CREATE INDEX idx_workout_sessions_user_started_at ON workout_sessions (user_id, started_at);
@@ -355,3 +387,5 @@ CREATE INDEX idx_diet_recommendations_user_recommended_at ON diet_recommendation
 CREATE INDEX idx_data_quality_log_unresolved ON data_quality_log (resolved) WHERE resolved = FALSE;
 CREATE INDEX idx_subscriptions_user_started_at ON subscriptions (user_id, started_at);
 CREATE UNIQUE INDEX uq_subscriptions_one_active_per_user ON subscriptions (user_id) WHERE status = 'active';
+CREATE INDEX idx_workout_plans_user_generated_at ON workout_plans (user_id, generated_at);
+CREATE INDEX idx_nutrition_plans_user_generated_at ON nutrition_plans (user_id, generated_at);

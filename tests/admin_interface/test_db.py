@@ -31,6 +31,7 @@ EXPECTED_TABLES = {
     "workout_sets", "biometric_measurements", "medical_profiles",
     "dietary_preferences", "fitness_profiles", "diet_recommendations",
     "data_quality_log", "organizations", "subscriptions",
+    "workout_plans", "nutrition_plans",
 }
 
 

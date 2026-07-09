@@ -12,3 +12,5 @@ from api.models.diet_recommendation import DietRecommendation  # noqa: F401
 from api.models.data_quality_log import DataQualityLog  # noqa: F401
 from api.models.organization import Organization  # noqa: F401
 from api.models.subscription import Subscription  # noqa: F401
+from api.models.workout_plan import WorkoutPlan  # noqa: F401
+from api.models.nutrition_plan import NutritionPlan  # noqa: F401

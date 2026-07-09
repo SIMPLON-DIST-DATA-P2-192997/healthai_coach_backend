@@ -34,6 +34,8 @@ EXPECTED_TABLES = {
     "data_quality_log",
     "organizations",
     "subscriptions",
+    "workout_plans",
+    "nutrition_plans",
 }
 
 

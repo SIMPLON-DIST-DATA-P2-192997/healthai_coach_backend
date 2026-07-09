@@ -18,5 +18,10 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_PREFIX: str = "/api/v1"
 
+    # Not yet deployed: read by api/services/ai_client.py once the real HTTP
+    # call replaces the stub. None means "use the stub" (cf. AI_SERVICE_URL
+    # check in ai_client.py).
+    AI_SERVICE_URL: str | None = None
+
 
 settings = Settings()
