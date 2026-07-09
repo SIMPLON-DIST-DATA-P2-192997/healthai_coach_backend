@@ -23,9 +23,11 @@ from api.models.fitness_profile import FitnessProfile
 from api.models.food_item import FoodItem
 from api.models.medical_profile import MedicalProfile
 from api.models.nutrition_log import NutritionLog
+from api.models.nutrition_plan import NutritionPlan
 from api.models.organization import Organization
 from api.models.subscription import Subscription
 from api.models.user import User
+from api.models.workout_plan import WorkoutPlan
 from api.models.workout_session import WorkoutSession
 from api.models.workout_set import WorkoutSet
 
@@ -119,6 +121,8 @@ EXPECTED_TABLES_AND_PKS = {
     "data_quality_log": "dq_log_id",
     "organizations": "organization_id",
     "subscriptions": "subscription_id",
+    "workout_plans": "workout_plan_id",
+    "nutrition_plans": "nutrition_plan_id",
 }
 
 
@@ -589,3 +593,52 @@ def test_organization_deletable_once_unreferenced(session):
     session.commit()
 
     assert session.query(Organization).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# workout_plans / nutrition_plans
+# ---------------------------------------------------------------------------
+
+def test_workout_plan_requires_plan_text(session):
+    user = make_user(session)
+    with pytest.raises(IntegrityError):
+        session.add(WorkoutPlan(user_id=user.id, goal="lose weight", plan_text=None))
+        session.commit()
+
+
+def test_workout_plan_goal_is_optional(session):
+    user = make_user(session)
+    session.add(WorkoutPlan(user_id=user.id, plan_text="3x/week full-body strength training."))
+    session.commit()
+
+    plan = session.query(WorkoutPlan).filter(WorkoutPlan.user_id == user.id).one()
+    assert plan.goal is None
+
+
+def test_workout_plan_cascades_on_user_delete(session):
+    user = make_user(session)
+    session.add(WorkoutPlan(user_id=user.id, plan_text="placeholder"))
+    session.commit()
+
+    session.delete(user)
+    session.commit()
+
+    assert session.query(WorkoutPlan).count() == 0
+
+
+def test_nutrition_plan_requires_plan_text(session):
+    user = make_user(session)
+    with pytest.raises(IntegrityError):
+        session.add(NutritionPlan(user_id=user.id, goal="vegetarian", plan_text=None))
+        session.commit()
+
+
+def test_nutrition_plan_cascades_on_user_delete(session):
+    user = make_user(session)
+    session.add(NutritionPlan(user_id=user.id, plan_text="placeholder"))
+    session.commit()
+
+    session.delete(user)
+    session.commit()
+
+    assert session.query(NutritionPlan).count() == 0

@@ -1,7 +1,7 @@
 # HealthAI Coach — Modèle de données (MCD / MLD / MPD)
 
-**Statut** : proposition initiale à valider par le Rôle A avant implémentation définitive (Sprint 1). Section `ORGANIZATIONS`/`SUBSCRIPTIONS` ajoutée ultérieurement pour le modèle économique (freemium/premium/premium+/B2B) — statut également proposition initiale.
-**Périmètre couvert** : utilisateurs, nutrition, exercices, biométrie, profil médical, préférences alimentaires, profil de forme, recommandations diététiques, journal de qualité des données, abonnements (cf. Sprints 1, 2, 3, 4).
+**Statut** : proposition initiale à valider par le Rôle A avant implémentation définitive (Sprint 1). Section `ORGANIZATIONS`/`SUBSCRIPTIONS` ajoutée ultérieurement pour le modèle économique (freemium/premium/premium+/B2B) — statut également proposition initiale. Section `WORKOUT_PLANS`/`NUTRITION_PLANS` ajoutée pour préparer l'intégration du microservice IA (contenu premium) — cf. note de conception dédiée.
+**Périmètre couvert** : utilisateurs, nutrition, exercices, biométrie, profil médical, préférences alimentaires, profil de forme, recommandations diététiques, journal de qualité des données, abonnements, plans générés par IA (cf. Sprints 1, 2, 3, 4).
 
 ---
 
@@ -24,6 +24,8 @@ erDiagram
     USERS |o--o{ DATA_QUALITY_LOG : "(0,n) résout (0,1)"
     USERS ||--o{ SUBSCRIPTIONS : "(0,n) souscrit (1,1)"
     ORGANIZATIONS |o--o{ SUBSCRIPTIONS : "(0,n) facture (0,1)"
+    USERS ||--o{ WORKOUT_PLANS : "(0,n) génère (1,1)"
+    USERS ||--o{ NUTRITION_PLANS : "(0,n) génère (1,1)"
 
     USERS {
         int user_id PK
@@ -132,6 +134,18 @@ erDiagram
         timestamp started_at
         timestamp ended_at
     }
+    WORKOUT_PLANS {
+        bigint workout_plan_id PK
+        string goal
+        text plan_text
+        timestamp generated_at
+    }
+    NUTRITION_PLANS {
+        bigint nutrition_plan_id PK
+        string goal
+        text plan_text
+        timestamp generated_at
+    }
 ```
 
 ### Note de conception : pourquoi `WORKOUT_SETS` ?
@@ -154,6 +168,18 @@ un utilisateur peut changer d'organisation (ex. changement d'employeur) sans per
 de ses souscriptions précédentes. La cardinalité `(0,1)` côté `ORGANIZATIONS` reflète que
 `organization_id` n'est renseigné que pour les souscriptions `tier = 'b2b'`.
 
+### Note de conception : microservice IA (`WORKOUT_PLANS` / `NUTRITION_PLANS`)
+
+`DIET_RECOMMENDATIONS` existait déjà pour les recommandations diététiques ; `WORKOUT_PLANS` et
+`NUTRITION_PLANS` complètent l'offre IA du palier Premium (plans sportifs/nutritionnels détaillés)
+avec le même pattern d'historisation (1 utilisateur -> N plans générés dans le temps). Les trois
+tables sont volontairement simples (`goal` = ce que l'utilisateur a demandé, `plan_text` = contenu
+généré) : le microservice IA qui produit réellement ce contenu n'est pas encore déployé — l'API
+expose dès maintenant les routes et le stockage (`api/services/ai_client.py` isole un stub
+derrière la même signature que le futur appel HTTP réel, cf. commentaires TODO), pour que
+brancher le vrai microservice plus tard ne change pas le contrat `POST /ai/...`. L'accès est
+réservé aux paliers payants (`premium`, `premium_plus`, `b2b`) — cf. modèle économique.
+
 ### Points à valider avec le Rôle A
 
 - Pas d'entité "coach" distincte des `USERS` (un simple flag `is_admin`) — à confirmer si un rôle coach séparé est nécessaire.
@@ -166,6 +192,8 @@ de ses souscriptions précédentes. La cardinalité `(0,1)` côté `ORGANIZATION
 - Une seule souscription `active` par utilisateur à la fois est imposée (index unique partiel `WHERE status = 'active'`) — à confirmer qu'un changement de palier doit bien clore l'ancienne souscription plutôt que d'autoriser des souscriptions actives concurrentes.
 - `ORGANIZATIONS` est volontairement minimal (nom + email de contact) : pas de gestion de marque blanche (logo, sous-domaine, plan négocié par organisation) dans ce lot — à enrichir si le besoin B2B se précise.
 - Le statut `expired` n'est pas positionné automatiquement par l'API à l'échéance d'une souscription (pas de tâche planifiée dans ce lot) — à confirmer si un job périodique (Airflow ?) doit faire cette transition.
+- `WORKOUT_PLANS`/`NUTRITION_PLANS` stockent `plan_text` en texte libre (pas de structure JSON typée) — à revoir une fois le contrat réel du microservice IA connu (le format de réponse pourrait justifier des colonnes structurées plutôt qu'un blob texte).
+- Le microservice IA lui-même (URL, authentification, contrat d'entrée/sortie, latence, gestion des erreurs/timeouts) n'est pas encore spécifié — `api/services/ai_client.py` renvoie un contenu factice en attendant ; à remplacer par un vrai appel HTTP une fois le service déployé.
 
 ---
 
@@ -201,6 +229,10 @@ DATA_QUALITY_LOG (dq_log_id, source_table, source_record_id, dag_id, rule_name, 
 ORGANIZATIONS (organization_id, name, contact_email, created_at)
 
 SUBSCRIPTIONS (subscription_id, #user_id, #organization_id, tier, status, price_eur_cents, started_at, ended_at, created_at)
+
+WORKOUT_PLANS (workout_plan_id, #user_id, goal, plan_text, generated_at)
+
+NUTRITION_PLANS (nutrition_plan_id, #user_id, goal, plan_text, generated_at)
 ```
 
 Toutes les associations du MCD sont de cardinalité (1,N) côté "possède/contient" — c'est-à-dire FK `NOT NULL` (participation obligatoire) — **sauf `DATA_QUALITY_LOG.resolved_by` et `SUBSCRIPTIONS.organization_id`, en (0,N)** : une anomalie peut rester non résolue et une souscription peut ne pas être liée à une organisation (FK nullable), donc la cardinalité côté `USERS`/`ORGANIZATIONS` est `(0,1)` et non `(1,1)` comme pour toutes les autres relations. Aucune table associative n'est nécessaire par ailleurs, chaque FK est absorbée côté table "N".

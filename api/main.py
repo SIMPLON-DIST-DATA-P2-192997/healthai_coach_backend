@@ -8,6 +8,7 @@ from api.config import settings
 from api.database import Base, engine
 from api.routers import admin, auth, users
 from api.routers import (
+    ai,
     biometrics,
     data_quality,
     exercises,
@@ -32,7 +33,8 @@ flow). Send it as `Authorization: Bearer <token>` on subsequent requests.
 Most `/health-profiles`, `/nutrition-logs`, `/workouts` and `/biometrics`
 endpoints operate on the authenticated user's own data; catalog endpoints
 (`/food-items`, `/exercises`) are readable by anyone but writable by admins
-only; `/admin` and `/data-quality` are admin-only.
+only; `/admin` and `/data-quality` are admin-only. `/ai` endpoints require an
+active premium/premium_plus/b2b subscription (see `/subscriptions`).
 """
 
 TAGS_METADATA = [
@@ -76,6 +78,22 @@ TAGS_METADATA = [
         "description": "Admin-only view into data quality anomalies detected by the ETL "
         "pipeline, and their resolution.",
     },
+    {
+        "name": "subscriptions",
+        "description": "The authenticated user's subscription (free/premium/premium_plus), "
+        "self-service tier changes and cancellation.",
+    },
+    {
+        "name": "organizations",
+        "description": "Admin-only B2B partner management and subscription provisioning "
+        "(white-label distribution to gyms/mutuelles/entreprises).",
+    },
+    {
+        "name": "ai",
+        "description": "AI-generated content (diet recommendations, workout/nutrition plans), "
+        "gated to premium/premium_plus/b2b subscribers. The AI microservice isn't deployed yet: "
+        "responses are placeholders (see api/services/ai_client.py).",
+    },
     {"name": "health", "description": "Service liveness check."},
 ]
 
@@ -112,6 +130,7 @@ app.include_router(health_profiles.router, prefix=settings.API_PREFIX)
 app.include_router(data_quality.router, prefix=settings.API_PREFIX)
 app.include_router(subscriptions.router, prefix=settings.API_PREFIX)
 app.include_router(organizations.router, prefix=settings.API_PREFIX)
+app.include_router(ai.router, prefix=settings.API_PREFIX)
 
 
 # ---------------------------------------------------------------------------
