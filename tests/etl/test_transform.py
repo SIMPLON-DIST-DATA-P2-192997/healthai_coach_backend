@@ -1,11 +1,12 @@
-import pandas as pd
-import numpy as np
-from unittest.mock import patch, mock_open
-
 from etl.transform.clean_diet import clean_diet
 from etl.transform.clean_exercises import clean_exercices
 from etl.transform.clean_nutrition import clean_nutrition
-from etl.transform.clean_users import clean_users
+from etl.transform.clean_users import clean_users_activity
+
+
+import pandas as pd
+from unittest.mock import patch, mock_open
+from datetime import timedelta
 
 # TEST : clean_diet
 
@@ -13,17 +14,25 @@ from etl.transform.clean_users import clean_users
 def test_clean_diet(mock_read_csv):
     mock_df = pd.DataFrame({
         "Unnamed: 0": [0, 1],
-        "Aliment": ["Pomme", pd.NA],
-        "Calories": [50, 100]
+        "Disease_Type": ["Type1", None],
+        "Severity": ["High", "Low"],
+        "Cholesterol_mg/dL": [200, 180],
+        "Blood_Pressure_mmHg": ["120/80", "110/70"],
+        "Glucose_mg/dL": [90, 85],
+        "Dietary_Restrictions": ["Vegan", None],
+        "Allergies": ["Peanuts", "None"],
+        "Preferred_Cuisine": ["Italian", "French"]
     })
-    mock_df["Aliment"] = mock_df["Aliment"].astype("string")
     mock_read_csv.return_value = mock_df
 
-    result = clean_diet()
+    df_med, df_diet = clean_diet()
 
-    mock_read_csv.assert_called_once_with("etl/data/diet.csv", sep=",")
-    assert "Unnamed: 0" not in result.columns
-    assert result["Aliment"].iloc[1] == "None" 
+    assert "Unnamed: 0" not in df_med.columns
+    assert "Unnamed: 0" not in df_diet.columns
+    assert df_med.loc[1, "Disease_Type"] == "None"
+    assert df_diet.loc[1, "Dietary_Restrictions"] == "None"
+    assert len(df_med.columns) == 5
+    assert len(df_diet.columns) == 3
 
 # TEST : clean_exercices
 
@@ -31,68 +40,85 @@ def test_clean_diet(mock_read_csv):
 @patch('builtins.open', new_callable=mock_open)
 def test_clean_exercices(mock_file, mock_json_load):
     mock_data = [{
-        "bodyParts": ["chest", "arms"],
-        "equipments": ["dumbbell", "barbell"],
-        "targetMuscles": ["pecs"],
+        "exerciseId": "001",
+        "name": "Push up",
+        "bodyParts": ["Chest", "Arms"],
+        "targetMuscles": ["Pectorals"],
+        "equipments": ["Body weight"],
+        "gifUrl": "http://example.com/pushup.gif",
         "instructions": ["Step 1", "Step 2"]
     }]
     mock_json_load.return_value = mock_data
 
-    result = clean_exercices()
+    df_exercises = clean_exercices()
 
-    mock_file.assert_called_once_with("etl/data/exercicesAPI.json", "r", encoding="utf-8")
-    assert result["bodyParts"].iloc[0] == "chest arms"
-    assert result["equipments"].iloc[0] == "dumbbell barbell"
-    assert result["targetMuscles"].iloc[0] == "pecs"
-    assert result["instructions"].iloc[0] == "Step 1\nStep 2"
-
+    assert len(df_exercises) == 1
+    assert df_exercises.loc[0, "body_part"] == "Chest Arms"
+    assert df_exercises.loc[0, "instructions"] == "Step 1\nStep 2"
+    assert df_exercises.loc[0, "source"] == "exercices_json"
+    assert "external_id" in df_exercises.columns
 
 # TEST : clean_nutrition
 
 @patch('pandas.read_csv')
 def test_clean_nutrition(mock_read_csv):
     mock_df = pd.DataFrame({
-        "Unnamed: 0": [0, 1],
-        "Nutrient": ["Protéine", "Glucide"]
+        "Unnamed: 0": [0],
+        "Food_Item": ["Apple"],
+        "Category": ["Fruit"],
+        "Calories (kcal)": [52],
+        "Protein (g)": [0.3],
+        "Carbohydrates (g)": [14],
+        "Fat (g)": [0.2],
+        "Fiber (g)": [2.4],
+        "Sugars (g)": [10],
+        "Sodium (mg)": [1],
+        "Cholesterol (mg)": [0]
     })
     mock_read_csv.return_value = mock_df
 
-    result = clean_nutrition()
+    df_nutrition = clean_nutrition()
 
+    assert df_nutrition.loc[0, "source"] == "kaggle_food_nutrition"
+    assert "calories_kcal" in df_nutrition.columns
+    assert df_nutrition.loc[0, "calories_kcal"] == 52
+    assert len(df_nutrition.columns) == 12
 
-    mock_read_csv.assert_called_once_with("etl/data/nutrition.csv", sep=",")
-    assert "Unnamed: 0" not in result.columns
-    assert "Nutrient" in result.columns
-    assert len(result) == 2
-
-# TEST : clean_users
+# TEST : clean_users_activity
 
 @patch('pandas.read_csv')
-def test_clean_users(mock_read_csv):
-    df_activity = pd.DataFrame({
+def test_clean_users_activity(mock_read_csv):
+    mock_df_activity = pd.DataFrame({
+        
         "Unnamed: 0": [0],
-        "Activity_ID": [1],
-        "Max_BPM": ["150"], 
-        "Type": ["Running"]
-    }).astype({"Type": "string"})
-
-    df_user = pd.DataFrame({
+        "Max_BPM": ["180"],
+        "Avg_BPM": [140],
+        "Session_Duration (hours)": [1.5],
+        "Weight (kg)": [75],
+        "Height (m)": [1.80],
+        "Resting_BPM": [60],
+        "Fat_Percentage": [15]
+    })
+    
+    mock_df_user = pd.DataFrame({
         "Unnamed: 0": [1],
-        "User_ID": [100],
-        "Max_BPM": ["Invalide_String"],
-        "Name": [pd.NA] 
-    }).astype({"Name": "string"})
+        "Age": [25],
+        "Gender": ["Male"]
+    })
+    
+    mock_read_csv.side_effect = [mock_df_activity, mock_df_user]
 
-    mock_read_csv.side_effect = [df_activity, df_user]
+    users, bio, workout = clean_users_activity()
 
-    result = clean_users()
-
-    assert mock_read_csv.call_count == 2
-    assert "Unnamed: 0" not in result.columns
-    assert len(result) == 2 
-
-    assert result["Max_BPM"].dtype == "float64"
-    assert result["Max_BPM"].iloc[0] == 150.0
-    assert np.isnan(result["Max_BPM"].iloc[1])
-
-    assert result["Name"].iloc[1] == "None"
+    assert "started_at" in workout.columns
+    assert "ended_at" in workout.columns
+    delta = workout.loc[0, "ended_at"] - workout.loc[0, "started_at"]
+    assert delta == timedelta(hours=1.5)
+    
+    assert bio.loc[0, "source"] == "kaggle_gym_members"
+    assert "Unnamed: 0" not in bio.columns
+    
+    assert users.loc[1, "sex"] == "M"
+    assert users.loc[1, "Age"] == 25
+    assert users.loc[1, "hashed_password"] == "fake_hashed_password"
+    assert isinstance(users.loc[1, "first_name"], str)
