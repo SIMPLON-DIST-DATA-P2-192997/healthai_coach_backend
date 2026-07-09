@@ -101,7 +101,7 @@ def test_clean_users_activity(mock_read_csv):
 
     mock_df_user = pd.DataFrame({
         "Unnamed: 0": [1],
-        "Gender": ["Male"],.
+        "Gender": ["Male"],
         "Session_Duration (hours)": [1.0],
         "Max_BPM": ["150"],
         "Avg_BPM": [120],
