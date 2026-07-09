@@ -1,5 +1,5 @@
 ---
-theme: default
+theme: seriph
 highlighter: shiki
 lineNumbers: false
 transition: slide-left
@@ -11,6 +11,12 @@ controls: false
 ## Backend Data Engineering
 
 Nutrition, activité physique, qualité des données — de l'ingestion à l'orchestration
+
+<br>
+
+Alexandre Laugier · Florian · Johane Decamps · William Mibelli
+
+Juillet 2026
 
 <!--
 - Bonsoir, je présente le backend data de HealthAI Coach, une plateforme de coaching santé
@@ -117,7 +123,7 @@ Sources externes (Kaggle, API ExerciseDB)
              (Gradio)
 ```
 
-Tout conteneurisé via `docker compose` (sept services), hors `api` en attente de son Dockerfile
+Tout conteneurisé via `docker compose` (sept services), une seule commande
 
 <!--
 - L'ETL alimente Postgres, orchestré par Airflow
@@ -129,15 +135,19 @@ Tout conteneurisé via `docker compose` (sept services), hors `api` en attente d
 
 # Choix technologiques
 
+<div class="text-sm">
+
 | Composant | Techno | Pourquoi |
 |---|---|---|
-| Base de données | PostgreSQL | Domaine structurellement relationnel — contraintes CHECK/FK portent une partie des règles métier |
+| Base de données | PostgreSQL | Domaine relationnel — contraintes CHECK/FK portent les règles métier |
 | Migrations | Alembic | |
 | Orchestration | Apache Airflow | |
 | API | FastAPI | SQLAlchemy, Pydantic, JWT |
 | Dashboard | Metabase | |
 | Interface admin | Gradio | Outil interne à faible surface, rapidité prime sur personnalisation |
 | Conteneurisation | Docker Compose | |
+
+</div>
 
 <!--
 - PostgreSQL plutôt que NoSQL : les contraintes d'intégrité (CHECK, FK) auraient dû être
@@ -203,7 +213,7 @@ layout: section
 
 # Structure du pipeline
 
-<img src="./img/etl_flow.png" class="mx-auto h-90" />
+<img src="./img/etl_flow.png" class="mx-auto w-full" />
 
 <!--
 - extract : télécharge les 4 datasets Kaggle + pagine l'API ExerciseDB
@@ -313,7 +323,7 @@ layout: section
 
 # Metabase
 
-<img src="./img/metabase_dashboard_db.png" class="mx-auto h-90 rounded shadow" />
+<img src="./img/metabase_dashboard_db.png" class="mx-auto h-70 rounded shadow" />
 
 - 14 tables + plusieurs vues KPI pré-construites (`vw_nutrition_meal_type_breakdown`, `vw_biometric_trend`...)
 - Limitation assumée : personnalisation visuelle restreinte au plan gratuit (pas de retrait du branding, palettes limitées)
