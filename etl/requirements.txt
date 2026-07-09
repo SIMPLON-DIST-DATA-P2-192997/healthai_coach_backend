@@ -1,3 +1,6 @@
 SQLAlchemy==2.0.51
 Faker==40.28.1
 psycopg2-binary==2.9.12
+pandas==3.0.3
+requests==2.34.2
+ratelimit==2.2.1

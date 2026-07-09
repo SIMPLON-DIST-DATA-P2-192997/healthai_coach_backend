@@ -1,4 +1,4 @@
-import psycopg2 
+import psycopg2
 from sqlalchemy import create_engine
 import sys
 import os
@@ -15,25 +15,12 @@ from etl.transform.clean_diet import clean_diet
 from etl.transform.clean_exercises import clean_exercises
 from etl.transform.clean_users import clean_users_activity
 
-print("🔄 Démarrage de la transformation des données...")
-exercises = clean_exercises()
-food_items = clean_nutrition()
-medical_profile, dietary_preference = clean_diet()
-user_infos = clean_users_activity()
-print("✅ Transformation terminée.")
-
-# Configuration de la base de données
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://healthai:changeme@localhost:5432/healthai_coach"
-)
-engine = create_engine(DATABASE_URL)
-conn = psycopg2.connect(DATABASE_URL)
 
 def safe_val(val):
     """Convertit les types nuls de Pandas (pd.NA, NaT, NaN) en None pour Postgres."""
     return None if pd.isna(val) else val
 
-def load_exercises():
+def load_exercises(exercises, engine, conn):
     print("⏳ Chargement de 'exercises' (UPSERT via table de staging)...")
     # 1. On charge le lot dans une table intermédiaire éphémère
     exercises.to_sql(
@@ -42,11 +29,11 @@ def load_exercises():
         if_exists='replace',
         index=False
     )
-    
+
     # 2. On applique l'UPSERT natif de PostgreSQL
     with conn.cursor() as cur:
         cur.execute("""
-            INSERT INTO exercises 
+            INSERT INTO exercises
                 (external_id, source, name, body_part, target_muscle, equipment, gif_url, instructions)
             SELECT external_id, source, name, body_part, target_muscle, equipment, gif_url, instructions
             FROM staging_exercises
@@ -61,8 +48,8 @@ def load_exercises():
         """)
         cur.execute("DROP TABLE IF EXISTS staging_exercises;")
     conn.commit()
-    
-def load_food_items():
+
+def load_food_items(food_items, engine, conn):
     print("⏳ Chargement de 'food_items' (UPSERT via table de staging)...")
     # 1. On charge dans la table de staging
     food_items.to_sql(
@@ -71,11 +58,11 @@ def load_food_items():
         if_exists='replace',
         index=False
     )
-    
+
     # 2. On applique l'UPSERT natif
     with conn.cursor() as cur:
         cur.execute("""
-            INSERT INTO food_items 
+            INSERT INTO food_items
                 (external_id, source, name, category, calories_kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, cholesterol_mg)
             SELECT external_id, source, name, category, calories_kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, cholesterol_mg
             FROM staging_food_items
@@ -94,11 +81,11 @@ def load_food_items():
         """)
         cur.execute("DROP TABLE IF EXISTS staging_food_items;")
     conn.commit()
-    
-def load_users(cur):
+
+def load_users(cur, user_infos):
     print("⏳ Chargement de 'users', 'biometric_measurements' et 'workout_sessions'...")
     generated_user_ids = []
-    
+
     for index, row in user_infos.iterrows():
         # 1. Insertion ou Mise à jour de l'utilisateur sur conflit d'email (UPSERT)
         # RETURNING renvoie l'ID qu'il soit créé OU mis à jour, ce qui est parfait pour la suite.
@@ -180,26 +167,57 @@ def load_dietary_preference(cur, id_list, df_dietary):
             safe_val(row['Preferred_Cuisine'])
         ))
 
+def transform():
+    """Exécute les 4 modules transform/ et renvoie les DataFrames prêts à charger."""
+    print("🔄 Démarrage de la transformation des données...")
+    exercises = clean_exercises()
+    food_items = clean_nutrition()
+    medical_profile, dietary_preference = clean_diet()
+    user_infos = clean_users_activity()
+    print("✅ Transformation terminée.")
+    return exercises, food_items, medical_profile, dietary_preference, user_infos
+
+
 def load_data():
+    """Point d'entrée : transform() puis chargement idempotent dans PostgreSQL.
+
+    Le transform et la connexion DB sont déclenchés ici, à l'appel de la
+    fonction — pas au niveau module comme avant — pour un usage sûr depuis
+    Airflow (qui importe périodiquement les fichiers DAG pour les parser ;
+    importer ce module ne doit donc rien exécuter de coûteux ni ouvrir de
+    connexion tant que load_data() n'est pas explicitement appelée).
+    """
+    exercises, food_items, medical_profile, dietary_preference, user_infos = transform()
+
+    database_url = os.environ.get(
+        "DATABASE_URL", "postgresql://healthai:changeme@localhost:5432/healthai_coach"
+    )
+    engine = create_engine(database_url)
+    conn = psycopg2.connect(database_url)
+
     try:
         with conn:
             # PLUS DE TRUNCATE ICI : La base conserve son historique et ses relations
             with conn.cursor() as cur:
-                load_exercises()
-                load_food_items()
-                
-                id_list = load_users(cur)
+                load_exercises(exercises, engine, conn)
+                load_food_items(food_items, engine, conn)
+
+                id_list = load_users(cur, user_infos)
                 load_medical_profile(cur, id_list, medical_profile)
                 load_dietary_preference(cur, id_list, dietary_preference)
-                
+
             conn.commit()
             print("🚀 ===============================")
             print("🚀 Load OK : Pipeline Idempotent terminé avec succès !")
             print("🚀 ===============================")
-            
+
     except Exception as e:
         print(f"❌ Erreur critique lors du chargement des données : {e}")
-        conn.rollback() 
+        conn.rollback()
+        # Re-lève l'exception : sans ça, une tâche Airflow (ou tout appelant)
+        # verrait cette fonction se terminer "normalement" malgré l'échec du
+        # chargement, et ne serait jamais marquée en échec.
+        raise
     finally:
         conn.close()
 
