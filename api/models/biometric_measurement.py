@@ -10,7 +10,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
-    text,
+        text,
 )
 
 from api.database import Base

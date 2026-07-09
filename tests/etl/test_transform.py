@@ -89,7 +89,6 @@ def test_clean_nutrition(mock_read_csv):
 @patch('pandas.read_csv')
 def test_clean_users_activity(mock_read_csv):
     mock_df_activity = pd.DataFrame({
-        
         "Unnamed: 0": [0],
         "Max_BPM": ["180"],
         "Avg_BPM": [140],
@@ -99,26 +98,31 @@ def test_clean_users_activity(mock_read_csv):
         "Resting_BPM": [60],
         "Fat_Percentage": [15]
     })
-    
+
     mock_df_user = pd.DataFrame({
         "Unnamed: 0": [1],
-        # "date_of_birth": ["1980-01-01"],
-        "Gender": ["Male"]
+        "Gender": ["Male"],
+        "Session_Duration (hours)": [1.0],
+        "Max_BPM": ["150"],
+        "Avg_BPM": [120],
+        "Weight (kg)": [80],
+        "Height (m)": [1.75],
+        "Resting_BPM": [55],
+        "Fat_Percentage": [18],
     })
-    
+
     mock_read_csv.side_effect = [mock_df_activity, mock_df_user]
 
-    users, bio, workout = clean_users_activity()
+    df = clean_users_activity()
 
-    assert "started_at" in workout.columns
-    assert "ended_at" in workout.columns
-    delta = workout.loc[0, "ended_at"] - workout.loc[0, "started_at"]
+    assert "started_at" in df.columns
+    assert "ended_at" in df.columns
+    delta = df.loc[0, "ended_at"] - df.loc[0, "started_at"]
     assert delta == timedelta(hours=1.5)
-    
-    assert bio.loc[0, "source"] == "kaggle_gym_members"
-    assert "Unnamed: 0" not in bio.columns
-    
-    assert users.loc[1, "sex"] == "M"
-    # assert users.loc[1, "date_of_birth"] == "1980-01-01"
-    assert users.loc[1, "hashed_password"] == "seed-not-a-real-hash"
-    assert isinstance(users.loc[1, "first_name"], str)
+
+    assert df.loc[0, "source"] == "kaggle_gym_members"
+    assert "Unnamed: 0" not in df.columns
+
+    assert df.loc[1, "sex"] == "M"
+    assert df.loc[1, "hashed_password"] == "seed-not-a-real-hash"
+    assert isinstance(df.loc[1, "first_name"], str)
