@@ -314,6 +314,13 @@ Outil interne (Sprint 5, \texttt{admin\_interface/app\_gradio.py}, thème \textt
 
 Testé par 26 tests (\texttt{tests/admin\_interface/}) : logique pure (formatage, traduction des filtres) sans dépendance, et logique base de données sur un PostgreSQL jetable (cf. \S\ref{sec:tests}).
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/admin_interface_consultation.png}
+\caption{Interface admin — filtres, consultation des anomalies, correction manuelle et export sur une même page.}
+\label{fig:admin-interface}
+\end{figure}
+
 \subsection{Accessibilité RGAA}
 
 Un audit automatisé (\texttt{axe-core}, navigateur headless) a été mené sur l'interface plutôt qu'une simple relecture visuelle, pour objectiver le niveau de conformité RGAA/WCAG AA réellement atteint. Résultat, deux catégories distinctes :
@@ -328,7 +335,21 @@ Un audit automatisé (\texttt{axe-core}, navigateur headless) a été mené sur 
 
 \subsection{Dashboard Metabase}
 
-Instance self-hosted (\texttt{docker compose}, cf. \S7), connectée en lecture à PostgreSQL, pour le suivi des KPI de qualité de données (nombre d'anomalies par sévérité/table, taux de résolution) en complément de l'interface admin — Metabase pour la vue d'ensemble/tendances, l'interface admin pour l'action (résolution au cas par cas).
+Instance self-hosted (\texttt{docker compose}, cf. \S7), connectée en lecture à PostgreSQL. Au-delà des 14 tables du schéma, plusieurs vues SQL (\texttt{vw\_biometric\_latest\_per\_user}, \texttt{vw\_nutrition\_calories\_by\_category}, \texttt{vw\_workout\_sessions\_weekly}...) sont exposées pour servir de base à des KPI (cf. figure~\ref{fig:metabase-db}), en complément de l'interface admin — Metabase pour la vue d'ensemble/tendances, l'interface admin pour l'action (résolution au cas par cas des anomalies, figure~\ref{fig:metabase-dql}).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/metabase_dashboard_db.png}
+\caption{Metabase — schéma \texttt{healthai\_coach} exposé : les 14 tables et les vues KPI pré-construites.}
+\label{fig:metabase-db}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/metabase_dashboard_qualite.png}
+\caption{Metabase — consultation de \texttt{data\_quality\_log}, données réellement chargées en base.}
+\label{fig:metabase-dql}
+\end{figure}
 
 Limitation assumée, propre au plan gratuit self-hosted : la personnalisation visuelle est restreinte à \texttt{Admin > Paramètres > Apparence} (nom de l'application, favicon, couleur primaire) ; le retrait du branding \og Powered by Metabase\fg{}, les palettes de couleurs de graphiques et les polices personnalisées sont réservés à l'offre Enterprise. Aucune méthode open source équivalente n'a été identifiée pour contourner cette restriction sans re-packager Metabase soi-même (hors périmètre). Décision : conserver le rendu par défaut plutôt que d'investir du temps sur ce point avant l'échéance.
 
