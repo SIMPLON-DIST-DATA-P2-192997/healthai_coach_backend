@@ -6,9 +6,15 @@ peuplée (cf. database/seed/ ou l'ETL réel).
 Accessibilité RGAA AA : chaque champ porte un label explicite, aucune
 information n'est portée par la seule couleur (la sévérité est affichée en
 texte dans le tableau), navigation clavier native de Gradio (pas de JS/souris
-obligatoire, thème intégré `Soft` en palette grise neutre — pas de CSS
-personnalisé qui risquerait de casser le contraste déjà validé par Gradio
-pour ses propres thèmes).
+obligatoire).
+
+Un audit axe-core a révélé que les couleurs de texte par défaut du thème
+`Soft` (labels et texte `info=`) échouent au contraste AA (4.34:1 et 2.56:1
+au lieu de 4.5:1 requis) — cf. THEME ci-dessous, qui les fonce via
+`.set(...)` pour passer le seuil. Les violations ARIA restantes détectées
+(aria-command-name, aria-required-children, nested-interactive sur le
+composant Dataframe) sont internes au rendu de Gradio et ne sont pas
+corrigeables depuis ce fichier.
 
 Usage :
     pip install -r admin_interface/requirements.txt
@@ -29,7 +35,13 @@ RESOLVED_LABELS = {"Toutes": None, "Résolues": True, "Non résolues": False}
 
 # Palette grise neutre plutôt que le bleu/violet par défaut du thème Soft,
 # jugé trop vif pour un outil interne (retour sur capture d'écran).
-THEME = gr.themes.Soft(primary_hue="slate", secondary_hue="slate", neutral_hue="slate")
+# block_label_text_color / block_info_text_color foncés à *neutral_600 :
+# les valeurs par défaut du thème Soft (*neutral_500 / *neutral_400) échouent
+# au contraste RGAA AA 4.5:1 (mesuré 4.34:1 et 2.56:1 via axe-core, issue #14).
+THEME = gr.themes.Soft(primary_hue="slate", secondary_hue="slate", neutral_hue="slate").set(
+    block_label_text_color="*neutral_600",
+    block_info_text_color="*neutral_600",
+)
 
 # Largeurs explicites alignées sur COLUMNS : sans ça, les colonnes vides/
 # étroites (source_record_id, dag_id) se compressent et leur en-tête
@@ -124,7 +136,7 @@ def build_app():
         current_rows = gr.State([])
 
         with gr.Group():
-            gr.Markdown("### Filtres")
+            gr.Markdown("## Filtres")
             with gr.Row():
                 severity_filter = gr.Dropdown(
                     choices=["Toutes"] + SEVERITIES,
@@ -154,7 +166,7 @@ def build_app():
             )
 
         with gr.Group():
-            gr.Markdown("### ✏️ Correction manuelle")
+            gr.Markdown("## ✏️ Correction manuelle")
             with gr.Row():
                 resolve_id = gr.Number(
                     label="Identifiant de l'anomalie (dq_log_id)",
@@ -175,7 +187,7 @@ def build_app():
             resolve_status = gr.Markdown()
 
         with gr.Group():
-            gr.Markdown("### ⬇️ Export")
+            gr.Markdown("## ⬇️ Export")
             with gr.Row():
                 export_csv_btn = gr.Button("Exporter en CSV", variant="secondary")
                 export_json_btn = gr.Button("Exporter en JSON", variant="secondary")
