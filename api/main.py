@@ -14,6 +14,8 @@ from api.routers import (
     food_items,
     health_profiles,
     nutrition_logs,
+    organizations,
+    subscriptions,
     workouts,
 )
 
@@ -108,6 +110,8 @@ app.include_router(workouts.router, prefix=settings.API_PREFIX)
 app.include_router(biometrics.router, prefix=settings.API_PREFIX)
 app.include_router(health_profiles.router, prefix=settings.API_PREFIX)
 app.include_router(data_quality.router, prefix=settings.API_PREFIX)
+app.include_router(subscriptions.router, prefix=settings.API_PREFIX)
+app.include_router(organizations.router, prefix=settings.API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

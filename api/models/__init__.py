@@ -10,3 +10,5 @@ from api.models.dietary_preference import DietaryPreference  # noqa: F401
 from api.models.fitness_profile import FitnessProfile  # noqa: F401
 from api.models.diet_recommendation import DietRecommendation  # noqa: F401
 from api.models.data_quality_log import DataQualityLog  # noqa: F401
+from api.models.organization import Organization  # noqa: F401
+from api.models.subscription import Subscription  # noqa: F401

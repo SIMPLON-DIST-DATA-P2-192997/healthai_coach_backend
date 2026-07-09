@@ -8,6 +8,7 @@ class FoodItemBase(BaseModel):
     source: str
     name: str
     brand: str | None = None
+    category: str | None = None
     calories_kcal: float = Field(ge=0)
     protein_g: float | None = Field(default=None, ge=0)
     carbs_g: float | None = Field(default=None, ge=0)
@@ -16,7 +17,6 @@ class FoodItemBase(BaseModel):
     sugar_g: float | None = Field(default=None, ge=0)
     sodium_mg: float | None = Field(default=None, ge=0)
     cholesterol_mg: float | None = Field(default=None, ge=0)
-    serving_size_g: float | None = Field(default=None, gt=0)
 
 
 class FoodItemCreate(FoodItemBase):
@@ -26,6 +26,7 @@ class FoodItemCreate(FoodItemBase):
 class FoodItemUpdate(BaseModel):
     name: str | None = None
     brand: str | None = None
+    category: str | None = None
     calories_kcal: float | None = Field(default=None, ge=0)
     protein_g: float | None = Field(default=None, ge=0)
     carbs_g: float | None = Field(default=None, ge=0)
@@ -34,7 +35,6 @@ class FoodItemUpdate(BaseModel):
     sugar_g: float | None = Field(default=None, ge=0)
     sodium_mg: float | None = Field(default=None, ge=0)
     cholesterol_mg: float | None = Field(default=None, ge=0)
-    serving_size_g: float | None = Field(default=None, gt=0)
 
 
 class FoodItemRead(FoodItemBase):

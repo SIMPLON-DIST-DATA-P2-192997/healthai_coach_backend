@@ -23,6 +23,8 @@ from api.models.fitness_profile import FitnessProfile
 from api.models.food_item import FoodItem
 from api.models.medical_profile import MedicalProfile
 from api.models.nutrition_log import NutritionLog
+from api.models.organization import Organization
+from api.models.subscription import Subscription
 from api.models.user import User
 from api.models.workout_session import WorkoutSession
 from api.models.workout_set import WorkoutSet
@@ -89,6 +91,15 @@ def make_exercise(session, **overrides):
     return exercise
 
 
+def make_organization(session, **overrides):
+    defaults = dict(name="Gymlife", contact_email="contact@gymlife.example")
+    defaults.update(overrides)
+    org = Organization(**defaults)
+    session.add(org)
+    session.commit()
+    return org
+
+
 # ---------------------------------------------------------------------------
 # Table / column names must mirror ddl_postgres.sql (MPD)
 # ---------------------------------------------------------------------------
@@ -106,6 +117,8 @@ EXPECTED_TABLES_AND_PKS = {
     "fitness_profiles": "fitness_profile_id",
     "diet_recommendations": "diet_recommendation_id",
     "data_quality_log": "dq_log_id",
+    "organizations": "organization_id",
+    "subscriptions": "subscription_id",
 }
 
 
@@ -200,7 +213,7 @@ def test_nutrition_log_meal_type_check_constraint(session):
         NutritionLog(
             user_id=user.id,
             food_item_id=food.id,
-            quantity_g=100,
+            portion_number=100,
             meal_type="brunch",
             logged_at=NOW,
         )
@@ -209,12 +222,12 @@ def test_nutrition_log_meal_type_check_constraint(session):
         session.commit()
 
 
-def test_nutrition_log_quantity_must_be_positive(session):
+def test_nutrition_log_portion_number_must_be_positive(session):
     user = make_user(session)
     food = make_food_item(session)
     session.add(
         NutritionLog(
-            user_id=user.id, food_item_id=food.id, quantity_g=0, meal_type="lunch", logged_at=NOW
+            user_id=user.id, food_item_id=food.id, portion_number=0, meal_type="lunch", logged_at=NOW
         )
     )
     with pytest.raises(IntegrityError):
@@ -226,7 +239,7 @@ def test_nutrition_log_cascades_on_user_delete(session):
     food = make_food_item(session)
     session.add(
         NutritionLog(
-            user_id=user.id, food_item_id=food.id, quantity_g=100, meal_type="lunch", logged_at=NOW
+            user_id=user.id, food_item_id=food.id, portion_number=100, meal_type="lunch", logged_at=NOW
         )
     )
     session.commit()
@@ -242,7 +255,7 @@ def test_nutrition_log_restricts_food_item_delete(session):
     food = make_food_item(session)
     session.add(
         NutritionLog(
-            user_id=user.id, food_item_id=food.id, quantity_g=100, meal_type="lunch", logged_at=NOW
+            user_id=user.id, food_item_id=food.id, portion_number=100, meal_type="lunch", logged_at=NOW
         )
     )
     session.commit()
@@ -445,3 +458,134 @@ def test_data_quality_log_resolved_by_set_null_on_user_delete(session):
 
     session.refresh(log)
     assert log.resolved_by is None
+
+
+# ---------------------------------------------------------------------------
+# organizations / subscriptions
+# ---------------------------------------------------------------------------
+
+def test_organization_requires_name_and_contact_email(session):
+    with pytest.raises(IntegrityError):
+        session.add(Organization(name=None, contact_email="a@b.com"))
+        session.commit()
+
+
+def test_subscription_tier_check_constraint(session):
+    user = make_user(session)
+    session.add(Subscription(user_id=user.id, tier="gold", status="active"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_subscription_status_check_constraint(session):
+    user = make_user(session)
+    session.add(Subscription(user_id=user.id, tier="free", status="pending"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_subscription_price_must_be_non_negative(session):
+    user = make_user(session)
+    session.add(Subscription(user_id=user.id, tier="premium", status="active", price_eur_cents=-1))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_subscription_ended_at_must_be_after_started_at(session):
+    user = make_user(session)
+    session.add(
+        Subscription(
+            user_id=user.id,
+            tier="free",
+            status="cancelled",
+            started_at=NOW,
+            ended_at=NOW - timedelta(days=1),
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_subscription_b2b_requires_organization(session):
+    user = make_user(session)
+    session.add(Subscription(user_id=user.id, tier="b2b", status="active"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_subscription_non_b2b_forbids_organization(session):
+    user = make_user(session)
+    org = make_organization(session)
+    session.add(
+        Subscription(user_id=user.id, organization_id=org.id, tier="free", status="active")
+    )
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_subscription_b2b_with_organization_is_valid(session):
+    user = make_user(session)
+    org = make_organization(session)
+    session.add(
+        Subscription(
+            user_id=user.id, organization_id=org.id, tier="b2b", status="active",
+            price_eur_cents=None,
+        )
+    )
+    session.commit()
+
+
+def test_subscription_only_one_active_per_user(session):
+    user = make_user(session)
+    session.add(Subscription(user_id=user.id, tier="free", status="active"))
+    session.commit()
+
+    session.add(Subscription(user_id=user.id, tier="premium", status="active"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_subscription_multiple_cancelled_allowed(session):
+    """The partial unique index only guards `status = 'active'` rows."""
+    user = make_user(session)
+    session.add(Subscription(user_id=user.id, tier="free", status="cancelled"))
+    session.commit()
+    session.add(Subscription(user_id=user.id, tier="premium", status="cancelled"))
+    session.commit()
+
+    assert session.query(Subscription).filter(Subscription.user_id == user.id).count() == 2
+
+
+def test_subscription_cascades_on_user_delete(session):
+    user = make_user(session)
+    session.add(Subscription(user_id=user.id, tier="free", status="active"))
+    session.commit()
+
+    session.delete(user)
+    session.commit()
+
+    assert session.query(Subscription).count() == 0
+
+
+def test_subscription_restricts_organization_delete(session):
+    """An organization can't be deleted while a subscription still requires it
+    (tier='b2b' => organization_id NOT NULL), so the FK is ON DELETE RESTRICT
+    rather than SET NULL — SET NULL would violate chk_subscriptions_b2b_organization."""
+    user = make_user(session)
+    org = make_organization(session)
+    session.add(
+        Subscription(user_id=user.id, organization_id=org.id, tier="b2b", status="cancelled")
+    )
+    session.commit()
+
+    session.delete(org)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_organization_deletable_once_unreferenced(session):
+    org = make_organization(session)
+    session.delete(org)
+    session.commit()
+
+    assert session.query(Organization).count() == 0

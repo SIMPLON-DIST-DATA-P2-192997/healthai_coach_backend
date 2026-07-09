@@ -30,7 +30,7 @@ EXPECTED_TABLES = {
     "users", "food_items", "nutrition_logs", "exercises", "workout_sessions",
     "workout_sets", "biometric_measurements", "medical_profiles",
     "dietary_preferences", "fitness_profiles", "diet_recommendations",
-    "data_quality_log",
+    "data_quality_log", "organizations", "subscriptions",
 }
 
 
