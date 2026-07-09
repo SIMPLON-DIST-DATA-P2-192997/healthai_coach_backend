@@ -371,6 +371,13 @@ Objectif Sprint 6 : \texttt{docker compose up} $\rightarrow$ environnement fonct
 
 \paragraph{Point de vigilance — \texttt{db-init} ne deviendra pas le vrai pipeline ETL.} \texttt{db-init} exécute \texttt{seed\_data.py}, qui commence par un \texttt{TRUNCATE ... CASCADE} avant repeuplement : adapté au dev local et à la démo, mais incompatible avec le vrai pipeline (\texttt{etl/load}, Sprint 2--3), conçu pour tourner de façon récurrente via des DAG Airflow planifiés et upserter sans jamais tronquer. Le jour où l'ETL réel alimente la base avec de vraies données, laisser \texttt{seed\_data.py} dans \texttt{db-init} effacerait tout à chaque \texttt{docker compose up}. Décision non encore tranchée à date de rédaction, deux options documentées (\texttt{docs/guide\_deploiement.md}) : retirer \texttt{seed\_data.py} de \texttt{db-init} et ne garder que les migrations, ou conditionner son exécution à une variable d'environnement dédiée réservée aux environnements de démo.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/dbeaver_users_table.png}
+\caption{Vérification du chargement réel des données (\texttt{users}, 101 lignes) via DBeaver connecté au conteneur \texttt{postgres}. On reconnaît la convention de seed dev/démo (\texttt{email} en \texttt{pXXXX@seed.local}, \texttt{hashed\_password = 'seed-not-a-real-hash'}) — à distinguer des vraies données produites par l'ETL une fois \texttt{load} en production (cf. point de vigilance ci-dessus).}
+\label{fig:dbeaver-users}
+\end{figure}
+
 % =============================================================================
 \section{Tests et CI/CD}
 \label{sec:tests}
