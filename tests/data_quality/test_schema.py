@@ -32,6 +32,8 @@ EXPECTED_TABLES = {
     "fitness_profiles",
     "diet_recommendations",
     "data_quality_log",
+    "organizations",
+    "subscriptions",
 }
 
 
