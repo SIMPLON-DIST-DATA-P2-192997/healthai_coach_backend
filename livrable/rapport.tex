@@ -390,10 +390,30 @@ Point de vigilance transverse, documenté dans \texttt{docs/plan\_de\_developpem
 % =============================================================================
 
 \subsection{Structure}
-% TODO : routers, modèles Pydantic, CRUD.
+
+FastAPI (\texttt{api/main.py}), toutes les routes préfixées \texttt{/api/v1}. Structure en couches, une responsabilité par dossier :
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \texttt{routers/} — la couche HTTP : un routeur par ressource, déclare les endpoints, valide les entrées via les schémas Pydantic, délègue à \texttt{crud/}.
+  \item \texttt{crud/} — accès base de données (requêtes SQLAlchemy), indépendant de FastAPI, ce qui permet de le tester sans monter d'application HTTP.
+  \item \texttt{models/} — les entités SQLAlchemy (ORM), une classe par table.
+  \item \texttt{schemas/} — les modèles Pydantic de requête/réponse (\texttt{...Create}, \texttt{...Read}, \texttt{...Update}), séparés des \texttt{models/} pour ne jamais exposer directement une colonne sensible (ex. \texttt{hashed\_password}) par accident.
+\end{itemize}
+
+Authentification par JWT (OAuth2 password flow) : \texttt{POST /auth/login} renvoie un jeton, envoyé ensuite en \texttt{Authorization: Bearer <token>}. Trois dépendances FastAPI réutilisables (\texttt{api/core/deps.py}) portent le contrôle d'accès : \texttt{CurrentUser} (authentifié), \texttt{CurrentAdmin} (403 si \texttt{is\_admin} faux), \texttt{CurrentPremiumUser} (403 hors palier payant, cf. \S5.3) — déclarées une fois, réutilisées comme simple type d'argument dans la signature de chaque route protégée. Documentation interactive auto-générée : \texttt{/docs} (Swagger UI), \texttt{/redoc}.
 
 \subsection{Endpoints principaux}
-% TODO : users, nutrition, exercises, subscriptions, organizations.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{auth} — inscription, connexion (émission du JWT).
+  \item \textbf{users} / \textbf{admin} — profil de l'utilisateur authentifié ; gestion de tout compte, réservée aux admins.
+  \item \textbf{food-items} / \textbf{exercises} — catalogues alimentés par l'ETL, lecture libre, écriture admin uniquement.
+  \item \textbf{nutrition-logs} / \textbf{workouts} / \textbf{biometrics} / \textbf{health-profiles} — données propres à l'utilisateur authentifié (repas journalisés ; séances et séries d'entraînement ; relevés biométriques ; profils médical/alimentaire/de forme historisés et recommandations diététiques en lecture seule).
+  \item \textbf{data-quality} — vue admin sur \texttt{data\_quality\_log} (cf. \S4.3) et résolution des anomalies, alternative programmatique à l'interface Gradio.
+  \item \textbf{subscriptions} / \textbf{organizations} — auto-gestion de l'abonnement ; provisionnement B2B et gestion des organisations partenaires, admin uniquement (cf. \S5.3).
+  \item \textbf{ai} — génération de contenu (recommandations, plans), réservée aux paliers payants (cf. \S5.3).
+  \item \textbf{health} — \textit{liveness check} pour la supervision.
+\end{itemize}
 
 \subsection{Abonnements et microservices IA}
 
