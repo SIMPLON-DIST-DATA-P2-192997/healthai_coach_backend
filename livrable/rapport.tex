@@ -1,0 +1,403 @@
+\documentclass{article}
+
+% --- PRÉAMBULE ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[numbers]{natbib}
+\usepackage[french]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{nicefrac}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{listings}
+\usepackage[protrusion=true,expansion=false]{microtype}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=red,
+    pdfborder={0 0 0}
+}
+
+\geometry{a4paper, margin=2.5cm}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, shapes.geometric, calc,
+                shapes.multipart}
+
+% --- Couleurs ---
+\definecolor{dbblue}{RGB}{10, 22, 40}
+\definecolor{lightgray}{RGB}{245, 246, 248}
+\definecolor{codegray}{RGB}{248, 248, 248}
+\definecolor{sqlkw}{RGB}{0, 0, 180}
+
+% --- Listings SQL / Python ---
+\lstdefinestyle{sql}{
+  language=SQL,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{sqlkw}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  backgroundcolor=\color{codegray},
+  frame=single, rulecolor=\color{gray!40},
+  numbers=left, numberstyle=\tiny\color{gray},
+  breaklines=true, keepspaces=true,
+}
+\lstdefinestyle{python}{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{sqlkw}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  backgroundcolor=\color{codegray},
+  frame=single, rulecolor=\color{gray!40},
+  numbers=left, numberstyle=\tiny\color{gray},
+  breaklines=true, keepspaces=true,
+}
+
+% --- Styles TikZ (MCD) ---
+\tikzset{
+  entity/.style={
+    draw=dbblue, line width=0.8pt,
+    rectangle split, rectangle split parts=2,
+    rectangle split part fill={dbblue, white},
+    rectangle split part align={center, left},
+    text width=3.4cm, font=\scriptsize,
+    inner sep=3pt,
+  },
+  entity sm/.style={
+    draw=dbblue, line width=0.8pt,
+    rectangle split, rectangle split parts=2,
+    rectangle split part fill={dbblue, white},
+    rectangle split part align={center, left},
+    text width=2.9cm, font=\scriptsize,
+    inner sep=2pt,
+  },
+  rel/.style={draw=black!55, line width=0.7pt},
+  relD/.style={draw=black!55, line width=0.7pt, dashed},
+  card/.style={font=\tiny\bfseries, fill=white, inner sep=1.5pt},
+}
+
+\newcommand{\eh}[1]{\textcolor{white}{\normalfont\bfseries\footnotesize #1}}
+\newcommand{\ea}[1]{\textcolor{black}{\scriptsize #1}}
+
+% --- Titre ---
+\title{\textbf{Rapport Technique}\\[0.4em]
+       \large HealthAI Coach — Projet Data Engineering\\[0.2em]
+       \normalsize Simplon Formation Data Engineer}
+\author{Alexandre Laugier\thanks{Rôle A — Architecte / Lead Data Engineer : schéma base de données, interface admin (Gradio), dashboard Metabase, dockerisation}
+        \and Florian\thanks{Rôle B — API REST (FastAPI)}
+        \and Johane Decamps \and William Mibelli\thanks{Rôle C — ETL (extract/transform/load), orchestration Airflow}}
+\date{Juillet 2026}
+
+% =============================================================================
+\begin{document}
+% =============================================================================
+
+\sloppy
+
+\maketitle
+\thispagestyle{plain}
+\newpage
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Introduction}
+% =============================================================================
+% TODO : contexte du projet, objectifs (coaching santé : nutrition, exercice,
+% suivi biométrique), périmètre fonctionnel, répartition des rôles.
+
+% =============================================================================
+\section{Architecture du système}
+% =============================================================================
+
+\subsection{Vue d'ensemble}
+% TODO : schéma d'architecture globale (postgres, api, etl/airflow,
+% admin_interface, metabase, docker compose).
+
+\subsection{Choix technologiques}
+% TODO : PostgreSQL, FastAPI, Airflow, Gradio, Metabase, Docker — justification
+% de chaque choix.
+
+% =============================================================================
+\section{Modélisation des données}
+% =============================================================================
+
+Le schéma relationnel (\texttt{database/schema/ddl\_postgres.sql}) compte 14 tables, réparties en quatre domaines fonctionnels autour de l'entité centrale \texttt{USERS} : nutrition, activité physique, suivi déclaratif de santé, et abonnements. Chaque table porte des commentaires SQL (\texttt{COMMENT ON TABLE/COLUMN}) documentant directement en base la signification de chaque champ — en particulier les conventions non triviales comme les clés d'idempotence \texttt{UNIQUE(source, external\_id)}.
+
+\subsection{Modèle Conceptuel de Données — périmètre OLTP}
+
+La figure~\ref{fig:mcd-core} présente le cœur du modèle : nutrition, activité physique et suivi de santé déclaratif, tous rattachés à \texttt{USERS}. La figure~\ref{fig:mcd-subscriptions} présente le domaine abonnements, ajouté dans un second temps pour l'offre B2C/B2B.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[node distance=1.1cm and 1.1cm, >=Stealth]
+
+\node[entity] (food) {\eh{FOOD\_ITEMS}
+\nodepart{two}\ea{food\_item\_id (PK)\\source, external\_id (UK)\\name, calories\_kcal...}};
+
+\node[entity, below=of food] (nutlog) {\eh{NUTRITION\_\\LOGS}
+\nodepart{two}\ea{log\_id (PK)\\user\_id (FK)\\food\_item\_id (FK)\\portion\_number, meal\_type}};
+
+\node[entity, right=6.4cm of food] (exo) {\eh{EXERCISES}
+\nodepart{two}\ea{exercise\_id (PK)\\source, external\_id (UK)\\name, body\_part...}};
+
+\node[entity, below=of exo] (sets) {\eh{WORKOUT\_\\SETS}
+\nodepart{two}\ea{set\_id (PK)\\session\_id (FK)\\exercise\_id (FK)\\reps, weight\_kg...}};
+
+\node[entity, below=of sets] (sess) {\eh{WORKOUT\_\\SESSIONS}
+\nodepart{two}\ea{session\_id (PK)\\user\_id (FK)\\started\_at, ended\_at\\max\_bpm, avg\_bpm}};
+
+\node[entity, below right=2.9cm and -0.3cm of nutlog] (users) {\eh{USERS}
+\nodepart{two}\ea{user\_id (PK)\\email (UK), sex\\is\_admin}};
+
+\node[entity sm, below=2.6cm of users] (bio) {\eh{BIOMETRIC\_\\MEASUREMENTS}
+\nodepart{two}\ea{measurement\_id (PK)\\user\_id (FK)\\weight\_kg, height\_cm...}};
+
+\node[entity sm, left=0.5cm of bio] (med) {\eh{MEDICAL\_\\PROFILES}
+\nodepart{two}\ea{medical\_profile\_id (PK)\\user\_id (FK)\\disease\_type, severity...}};
+
+\node[entity sm, left=0.5cm of med] (dql) {\eh{DATA\_QUALITY\_\\LOG}
+\nodepart{two}\ea{dq\_log\_id (PK)\\source\_table\\resolved\_by (FK, optionnelle)}};
+
+\node[entity sm, right=0.5cm of bio] (diet) {\eh{DIETARY\_\\PREFERENCES}
+\nodepart{two}\ea{dietary\_preference\_id (PK)\\user\_id (FK)\\allergies...}};
+
+\node[entity sm, right=0.5cm of diet] (fit) {\eh{FITNESS\_\\PROFILES}
+\nodepart{two}\ea{fitness\_profile\_id (PK)\\user\_id (FK)\\experience\_level...}};
+
+\node[entity sm, right=0.5cm of fit] (rec) {\eh{DIET\_\\RECOMMEN\-DATIONS}
+\nodepart{two}\ea{diet\_recommendation\_id (PK)\\user\_id (FK)\\recommendation...}};
+
+% Relations — cardinalités Merise (min,max), lues côté entité adjacente
+\draw[rel] (food) -- (nutlog) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (nutlog.east) -- ++(0.6,0) |- (users.west) node[card, pos=0.05]{(1,1)} node[card, pos=0.95]{(0,N)};
+\draw[rel] (exo) -- (sets) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (sets) -- (sess) node[card, pos=0.15]{(1,1)} node[card, pos=0.85]{(0,N)};
+\draw[rel] (sess.west) -- ++(-0.6,0) |- (users.east) node[card, pos=0.05]{(1,1)} node[card, pos=0.95]{(0,N)};
+\draw[rel] (users) -- (bio) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (users) -- (med) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (users) -- (diet) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (users) -- (fit) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (users) -- (rec) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[relD] (users) -- (dql) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(0,1)};
+
+\end{tikzpicture}}
+
+\vspace{0.2cm}
+\noindent\tikz[baseline=-0.5ex]{\draw[rel] (0,0) -- (0.6,0);} FK obligatoire (\texttt{NOT NULL}) \hspace{2em}
+\tikz[baseline=-0.5ex]{\draw[relD] (0,0) -- (0.6,0);} FK optionnelle (\texttt{NULL} autorisé)
+
+\caption{MCD — cœur du modèle (nutrition, activité physique, suivi de santé). Cardinalités au format Merise (min,max), lues côté entité adjacente.}
+\label{fig:mcd-core}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.7\textwidth}{!}{%
+\begin{tikzpicture}[node distance=1.6cm and 1.6cm, >=Stealth]
+
+\node[entity] (org) {\eh{ORGANIZATIONS}
+\nodepart{two}\ea{organization\_id (PK)\\name, contact\_email}};
+
+\node[entity, right=of org] (sub) {\eh{SUBSCRIPTIONS}
+\nodepart{two}\ea{subscription\_id (PK)\\user\_id (FK)\\organization\_id (FK, optionnelle)\\tier, status, price\_eur\_cents}};
+
+\node[entity, right=of sub] (usr2) {\eh{USERS}
+\nodepart{two}\ea{user\_id (PK)\\email (UK)}};
+
+\draw[relD] (org) -- (sub) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(0,1)};
+\draw[rel] (sub) -- (usr2) node[card, pos=0.15]{(1,1)} node[card, pos=0.85]{(0,N)};
+
+\end{tikzpicture}}
+
+\vspace{0.2cm}
+\noindent\tikz[baseline=-0.5ex]{\draw[rel] (0,0) -- (0.6,0);} FK obligatoire (\texttt{NOT NULL}) \hspace{2em}
+\tikz[baseline=-0.5ex]{\draw[relD] (0,0) -- (0.6,0);} FK optionnelle (\texttt{NULL} autorisé)
+
+\caption{MCD — domaine abonnements. \texttt{organization\_id} n'est renseigné que pour \texttt{tier = 'b2b'} (contrainte \texttt{chk\_subscriptions\_b2b\_organization}).}
+\label{fig:mcd-subscriptions}
+\end{figure}
+
+\subsection{Contraintes d'intégrité et conventions}
+
+Le schéma s'appuie sur PostgreSQL pour porter un maximum de règles métier directement en base plutôt que dans le code applicatif, avec quatre familles de contraintes récurrentes :
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Domaines de valeurs} — \texttt{CHECK} sur les colonnes à choix fermé : \texttt{sex IN ('F', 'M', 'other')}, \texttt{severity IN ('info', 'warning', 'error', 'critical')} (\texttt{data\_quality\_log}), \texttt{meal\_type IN ('breakfast', 'lunch', 'dinner', 'snack')}, \texttt{tier IN ('free', 'premium', 'premium\_plus', 'b2b')}. Ces contraintes ont capturé un bug réel en cours de développement : un mapping de valeurs dans l'ETL produisait \texttt{'Other'} (majuscule) au lieu de \texttt{'other'}, rejeté par PostgreSQL (\texttt{CheckViolation}) mais indétecté par les tests unitaires du module, qui mockaient la base — cf. \S\ref{sec:tests}.
+
+  \item \textbf{Cohérence inter-colonnes} — \texttt{CHECK} portant sur plusieurs colonnes de la même ligne : \texttt{ended\_at >= started\_at} (\texttt{workout\_sessions}, \texttt{subscriptions}), ou la cohérence B2B \texttt{(tier = 'b2b' AND organization\_id IS NOT NULL) OR (tier <> 'b2b' AND organization\_id IS NULL)} qui garantit qu'une organisation n'est renseignée que pour les abonnements B2B, et inversement.
+
+  \item \textbf{Idempotence au chargement} — \texttt{food\_items} et \texttt{exercises} portent \texttt{UNIQUE(source, external\_id)} : la paire (origine de la donnée, identifiant dans la source) sert de clé d'upsert (\texttt{INSERT ... ON CONFLICT DO UPDATE}) pour que les DAG Airflow puissent être rejoués sans dupliquer les données. Point de vigilance documenté et transmis à l'équipe ETL : \texttt{biometric\_measurements} porte \texttt{UNIQUE(user\_id, measured\_at)} et non \texttt{UNIQUE(user\_id, source)} — si le chargement fixe \texttt{measured\_at = now()} au moment de l'ingestion, chaque ré-exécution génère un nouveau relevé au lieu de mettre à jour l'existant.
+
+  \item \textbf{Génération de données manquantes, sans casser l'idempotence} — les datasets sources n'ont pas de champ nom (\texttt{first\_name}/\texttt{last\_name}, \texttt{NOT NULL} en base). Convention retenue : \texttt{Faker} avec une seed déterministe par ligne source (\texttt{Faker.seed(hash(patient\_id))}), pas un tirage aléatoire à chaque exécution — sinon un même utilisateur changerait de nom à chaque ré-exécution du DAG, ce qui casse la logique d'idempotence par ailleurs garantie par les \texttt{UNIQUE(source, external\_id)}.
+\end{itemize}
+
+% =============================================================================
+\section{Pipeline ETL}
+% =============================================================================
+
+\subsection{Structure du pipeline}
+
+Le pipeline suit un découpage classique en trois étapes, une responsabilité par module sous \texttt{etl/} :
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \texttt{extract/extract.py} — télécharge les quatre jeux de données Kaggle (nutrition, diet, gym-members, fitness-tracker) et interroge l'API publique \texttt{oss.exercisedb.dev} (pagination gérée) ; écrit les fichiers bruts sous \texttt{etl/data/}.
+  \item \texttt{transform/} — un module par source (\texttt{clean\_nutrition.py}, \texttt{clean\_exercises.py}, \texttt{clean\_diet.py}, \texttt{clean\_users.py}), chacun responsable du renommage des colonnes vers le schéma cible, du typage, et du remplissage des colonnes obligatoires absentes de la source (cf. \S3.2, convention \texttt{Faker.seed()}).
+  \item \texttt{load/} — en cours de développement à la date de rédaction. Choix retenu : \texttt{pgcopy} pour l'insertion dans \texttt{users} (récupération de \texttt{user\_id} en \texttt{SERIAL}, sans dépendre du retour de \texttt{COPY} qui ne supporte pas \texttt{RETURNING}), et \texttt{INSERT ... ON CONFLICT DO UPDATE} pour les tables dotées d'une clé d'idempotence (\texttt{food\_items}, \texttt{exercises}) — méthode d'insertion choisie table par table selon la contrainte disponible, pas une méthode unique imposée à tout le pipeline.
+\end{itemize}
+
+L'orchestration (Sprint 3, Airflow) prévoit un DAG par source plus un DAG de contrôle qualité (\texttt{dag\_quality\_check.py}) journalisant les anomalies dans \texttt{data\_quality\_log}, activé une fois chaque module \texttt{transform}/\texttt{load} testé et mergé.
+
+\subsection{Données sources}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}p{3.4cm} X l@{}}
+\toprule
+\textbf{Source} & \textbf{Alimente} & \textbf{Valeur \texttt{source}} \\
+\midrule
+Kaggle — Daily Food and Nutrition & \texttt{food\_items} & \texttt{kaggle\_\allowbreak daily\_\allowbreak food\_\allowbreak nutrition} \\
+Kaggle — Diet Recommendations & \texttt{medical\_profiles}, \texttt{dietary\_preferences} & (pas de \texttt{source}) \\
+Kaggle — Gym Members Exercise & \texttt{users}, \texttt{biometric\_measurements}, \texttt{workout\_sessions} & \texttt{kaggle\_\allowbreak gym\_\allowbreak members} \\
+Kaggle — Fitness Tracker & \texttt{users}, \texttt{biometric\_measurements}, \texttt{workout\_sessions} & \texttt{kaggle\_\allowbreak gym\_\allowbreak members} \\
+API \texttt{oss.exercisedb.dev} & \texttt{exercises} & \texttt{exercisedb} \\
+\bottomrule
+\end{tabularx}
+\caption{Correspondance source $\rightarrow$ table(s) alimentée(s). La colonne \texttt{source} est la clé de traçabilité et, combinée à \texttt{external\_id}, la clé d'upsert idempotent pour \texttt{food\_items}/\texttt{exercises} (cf. \S3.2).}
+\end{table}
+
+Point de vigilance transverse, documenté dans \texttt{docs/plan\_de\_developpement.md} et vérifié par relecture croisée avant fusion des PR de l'équipe ETL : la valeur exacte de \texttt{source} doit correspondre caractère pour caractère à celle attendue par la clé d'upsert et par \texttt{database/seed/seed\_data.py} (référence de mapping colonnes $\rightarrow$ tables) — une divergence silencieuse (ex. \texttt{'kaggle\_food\_nutrition'} au lieu de \texttt{'kaggle\_daily\_food\_nutrition'}) romprait la déduplication sans lever d'erreur SQL, puisque \texttt{source} n'est contrainte par aucun \texttt{CHECK} de valeurs. Ce type d'erreur ne se détecte pas par les tests unitaires du module \texttt{transform} (entrées mockées, aucun accès à une vraie base) : seule une vérification contre le schéma réel ou contre \texttt{seed\_data.py} le révèle.
+
+\subsection{Qualité des données}
+
+\texttt{data\_quality\_log} centralise les anomalies détectées par l'ETL (Sprint 3, DAG \texttt{dag\_quality\_check.py}) : table source, ligne concernée le cas échéant, règle déclenchée, sévérité (\texttt{info}/\texttt{warning}/\texttt{error}/\texttt{critical}), message. Consultation, filtrage et résolution manuelle des anomalies via l'interface admin (Sprint 5, \S\ref{sec:admin-interface}). La contrainte \texttt{chk\_data\_quality\_log\_resolution\_consistency} garantit qu'une anomalie non résolue ne porte ni \texttt{resolved\_at} ni \texttt{resolved\_by} — cohérence vérifiée par test (\texttt{tests/data\_quality/test\_schema.py}).
+
+% =============================================================================
+\section{API REST}
+% =============================================================================
+
+\subsection{Structure}
+% TODO : routers, modèles Pydantic, CRUD.
+
+\subsection{Endpoints principaux}
+% TODO : users, nutrition, exercises, subscriptions, organizations.
+
+\subsection{Abonnements et microservices IA}
+% TODO : tiers free/premium/premium_plus, B2B, statut du volet IA.
+
+% =============================================================================
+\section{Interface admin (Gradio) et dashboard Metabase}
+\label{sec:admin-interface}
+% =============================================================================
+
+\subsection{Interface admin}
+
+Outil interne (Sprint 5, \texttt{admin\_interface/app\_gradio.py}, thème \texttt{Gradio Soft}) destiné aux administrateurs (\texttt{users.is\_admin}) pour traiter les anomalies journalisées dans \texttt{data\_quality\_log} sans accès direct à la base :
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Consultation} — tableau filtrable par sévérité, statut de résolution et table source (filtre partiel), rafraîchi à la demande.
+  \item \textbf{Correction manuelle} — résolution d'une anomalie par son \texttt{dq\_log\_id}, avec traçabilité optionnelle de l'administrateur ayant traité le cas (\texttt{resolved\_by}).
+  \item \textbf{Export} — CSV et JSON du résultat filtré courant, dates sérialisées au format ISO.
+\end{itemize}
+
+Testé par 26 tests (\texttt{tests/admin\_interface/}) : logique pure (formatage, traduction des filtres) sans dépendance, et logique base de données sur un PostgreSQL jetable (cf. \S\ref{sec:tests}).
+
+\subsection{Accessibilité RGAA}
+
+Un audit automatisé (\texttt{axe-core}, navigateur headless) a été mené sur l'interface plutôt qu'une simple relecture visuelle, pour objectiver le niveau de conformité RGAA/WCAG AA réellement atteint. Résultat, deux catégories distinctes :
+
+\textbf{Corrigé, propre au code applicatif} —
+\begin{itemize}[leftmargin=1.4em]
+  \item \textit{Contraste insuffisant} : les couleurs de texte par défaut du thème \texttt{Soft} échouaient au seuil AA de 4,5:1 — labels de champs à 4,34:1, texte d'aide (\texttt{info=}) à 2,56:1 (échec net). Cause : \texttt{block\_label\_text\_color} et \texttt{block\_info\_text\_color} valent respectivement \texttt{*neutral\_500}/\texttt{*neutral\_400} par défaut dans Gradio. Corrigé en les fixant explicitement à \texttt{*neutral\_600} (\texttt{\#475569}), ce qui porte le ratio à 6,1--7,6:1 selon le fond concerné (vérifié par calcul de luminance relative sur les trois fonds rencontrés : blanc, \texttt{\#f1f5f9}, \texttt{\#e2e8f0}).
+  \item \textit{Hiérarchie de titres invalide} : le titre principal (\texttt{h1}) était suivi directement de sous-titres en \texttt{h3} (\texttt{Filtres}, \texttt{Correction manuelle}, \texttt{Export}), sans niveau \texttt{h2} intermédiaire. Corrigé en repassant ces sous-titres en \texttt{h2}.
+\end{itemize}
+
+\textbf{Non corrigible depuis le code applicatif} — le composant \texttt{Dataframe} de Gradio génère, pour son mécanisme de glisser-déposer CSV/TSV, un bouton englobant l'ensemble des cellules et en-têtes du tableau (chacun rendu comme \texttt{span role="button"} individuellement focusable), ce qui viole plusieurs règles ARIA : éléments interactifs imbriqués (\texttt{nested-interactive}), noms accessibles manquants sur les cellules (\texttt{aria-command-name}), structure de grille invalide (\texttt{aria-required-children}). Confirmé indépendamment par un test de navigation clavier (parcours \texttt{Tab} sur 8 arrêts) : le tableau se comporte comme un unique arrêt de focus englobant, sans granularité cellule par cellule utilisable au clavier/lecteur d'écran. Ces défauts sont internes au rendu du composant Gradio, documentés comme limitation connue plutôt que contournés (un contournement aurait nécessité de reconstruire le composant tableau, hors de portée du calendrier).
+
+\subsection{Dashboard Metabase}
+
+Instance self-hosted (\texttt{docker compose}, cf. \S7), connectée en lecture à PostgreSQL, pour le suivi des KPI de qualité de données (nombre d'anomalies par sévérité/table, taux de résolution) en complément de l'interface admin — Metabase pour la vue d'ensemble/tendances, l'interface admin pour l'action (résolution au cas par cas).
+
+Limitation assumée, propre au plan gratuit self-hosted : la personnalisation visuelle est restreinte à \texttt{Admin > Paramètres > Apparence} (nom de l'application, favicon, couleur primaire) ; le retrait du branding \og Powered by Metabase\fg{}, les palettes de couleurs de graphiques et les polices personnalisées sont réservés à l'offre Enterprise. Aucune méthode open source équivalente n'a été identifiée pour contourner cette restriction sans re-packager Metabase soi-même (hors périmètre). Décision : conserver le rendu par défaut plutôt que d'investir du temps sur ce point avant l'échéance.
+
+% =============================================================================
+\section{Dockerisation}
+\label{sec:docker}
+% =============================================================================
+
+Objectif Sprint 6 : \texttt{docker compose up} $\rightarrow$ environnement fonctionnel en moins de 30 minutes, une seule commande. Quatre services (\texttt{docker-compose.yml}) :
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{postgres} (image officielle 16) — healthcheck \texttt{pg\_isready}, condition de démarrage pour les services suivants.
+  \item \textbf{db-init} — conteneur à usage unique (\texttt{service\_completed\_successfully}) : applique les migrations Alembic puis peuple la base via \texttt{database/seed/seed\_data.py} (données fictives, dev/démo).
+  \item \textbf{admin\_interface} — démarre une fois \texttt{db-init} terminé avec succès, expose le port 7860.
+  \item \textbf{metabase} — image officielle, même dépendance à \texttt{db-init}, expose le port 3000 ; connexion à PostgreSQL configurée une seule fois manuellement au premier lancement (Metabase n'expose pas d'API de pré-configuration).
+\end{itemize}
+
+\texttt{api} et \texttt{airflow} restent en stub commenté dans le compose au moment de la rédaction, en attente des \texttt{Dockerfile} des équipes concernées — les variables d'environnement correspondantes sont déjà prévues dans \texttt{.env.example}.
+
+\paragraph{Point de vigilance — \texttt{db-init} ne deviendra pas le vrai pipeline ETL.} \texttt{db-init} exécute \texttt{seed\_data.py}, qui commence par un \texttt{TRUNCATE ... CASCADE} avant repeuplement : adapté au dev local et à la démo, mais incompatible avec le vrai pipeline (\texttt{etl/load}, Sprint 2--3), conçu pour tourner de façon récurrente via des DAG Airflow planifiés et upserter sans jamais tronquer. Le jour où l'ETL réel alimente la base avec de vraies données, laisser \texttt{seed\_data.py} dans \texttt{db-init} effacerait tout à chaque \texttt{docker compose up}. Décision non encore tranchée à date de rédaction, deux options documentées (\texttt{docs/guide\_deploiement.md}) : retirer \texttt{seed\_data.py} de \texttt{db-init} et ne garder que les migrations, ou conditionner son exécution à une variable d'environnement dédiée réservée aux environnements de démo.
+
+% =============================================================================
+\section{Tests et CI/CD}
+\label{sec:tests}
+% =============================================================================
+
+\subsection{Suite de tests}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Module} & \textbf{Périmètre} & \textbf{Fichiers} \\
+\midrule
+\texttt{tests/data\_quality/} & Schéma SQL : tables, FK, CHECK, cascades & 1 \\
+\texttt{tests/admin\_interface/} & Interface admin : logique pure + DB réelle & 3 \\
+\texttt{tests/api/} & Auth, users, organizations, subscriptions, contraintes & 7 \\
+\texttt{tests/etl/} & Fonctions \texttt{transform} (entrées mockées) & 2 \\
+\bottomrule
+\end{tabular}
+\caption{Suite de tests (118 tests au moment de la rédaction), \texttt{pytest}.}
+\end{table}
+
+Les tests \texttt{data\_quality} et \texttt{admin\_interface} s'exécutent contre un PostgreSQL jetable (schéma reconstruit à chaque run depuis \texttt{ddl\_postgres.sql}) plutôt que des mocks, précisément parce que les contraintes \texttt{CHECK}/\texttt{FOREIGN KEY} sont une partie significative des règles métier du projet (cf. \S3.2) : un mock ne les vérifie pas. Cette différence de méthode s'est révélée concrète en cours de développement — une valeur \texttt{'Other'} (majuscule) produite par le module \texttt{transform} de l'ETL passait les 4 tests unitaires du module (entrées mockées) mais violait la contrainte \texttt{CHECK} réelle en base, détecté uniquement par insertion effective lors de la relecture de la PR correspondante.
+
+\subsection{Pipeline CI}
+
+GitHub Actions (\texttt{.github/workflows/ci.yml}), déclenché sur \texttt{pull\_request} et \texttt{push} vers \texttt{main}/\texttt{dev} : service PostgreSQL 16 éphémère, application des migrations Alembic (\texttt{alembic upgrade head}), puis \texttt{pytest tests/ -v}. Dépendances installées depuis deux fichiers consolidés (\texttt{database/migrations/requirements.txt} + \texttt{tests/requirements.txt}) plutôt que les \texttt{requirements.txt} propres à chaque module — point de vigilance pour la reproduction locale d'un échec CI : tester avec l'ensemble des \texttt{requirements.txt} du dépôt installés masque de vraies dépendances manquantes en CI (rencontré une fois en pratique, cf. \S8).
+
+% =============================================================================
+\section{Bilan et obstacles}
+% =============================================================================
+
+\subsection{Obstacles techniques rencontrés}
+% TODO.
+
+\subsection{Points positifs}
+% TODO.
+
+% =============================================================================
+\section{Conclusion}
+% =============================================================================
+% TODO.
+
+% =============================================================================
+\appendix
+\section{Extrait du schéma SQL — tables principales}
+% =============================================================================
+% TODO.
+
+\end{document}
