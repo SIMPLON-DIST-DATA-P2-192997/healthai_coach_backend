@@ -1,6 +1,7 @@
 import pandas as pd
 from faker import Faker
 from datetime import datetime
+import random
 
 fake = Faker("en")
 
@@ -26,22 +27,23 @@ def clean_users_activity():
     
     # pour la table users 
     nouvelles_lignes = []
+    # current_year = datetime.now().year
     
     for index, row in dfusers.iterrows():
-        
         Faker.seed(index) 
-        
+        age = row.get("Age")
+
         nouvel_utilisateur = {
            
-            "Age": row.get("Age"),
+            "date_of_birth": f"{datetime.now().year - int(age)}-{f"{random.randint(1,12):02}"}-{f"{random.randint(1,28):02}"}" if pd.notna(age) else None,
             "sex": row.get("Gender"),
             "first_name": fake.first_name(),
             "last_name": fake.last_name(),
             "email": fake.email(),
-            "hashed_password": "fake_hashed_password"
+            "hashed_password": "seed-not-a-real-hash"
         }
         
         nouvelles_lignes.append(nouvel_utilisateur) 
     users = pd.DataFrame(nouvelles_lignes)
-    users["sex"] = users["sex"].replace({"Male":"M", "Female": "F", "None" : "Other"})
+    users["sex"] = users["sex"].replace({"Male":"M", "Female": "F", "None" : "other"})
     return users, biometric_measurments, workout_session
