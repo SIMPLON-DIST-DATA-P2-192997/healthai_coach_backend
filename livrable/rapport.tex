@@ -187,18 +187,30 @@ La figure~\ref{fig:mcd-core} présente le cœur du modèle : nutrition, activit�
 
 % Relations — cardinalités Merise (min,max), lues côté entité adjacente
 \draw[rel] (food) -- (nutlog) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
-\draw[rel] (nutlog.east) -- ++(0.6,0) |- (users.west) node[card, pos=0.05]{(1,1)} node[card, pos=0.95]{(0,N)};
+\draw[rel] (nutlog.east) -- ++(0.6,0) |- (users.north west) node[card, pos=0.05]{(1,1)} node[card, pos=0.95]{(0,N)};
 \draw[rel] (exo) -- (sets) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
 \draw[rel] (sets) -- (sess) node[card, pos=0.15]{(1,1)} node[card, pos=0.85]{(0,N)};
-\draw[rel] (sess.west) -- ++(-0.6,0) |- (users.east) node[card, pos=0.05]{(1,1)} node[card, pos=0.95]{(0,N)};
-\draw[rel] (users) -- (bio) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
-\draw[rel] (users) -- (med) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
-\draw[rel] (users) -- (diet) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
-\draw[rel] (users) -- (fit) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
-\draw[rel] (users) -- (rec) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
-\draw[relD] (users) -- (dql) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(0,1)};
-\draw[rel] (users) -- (wplan) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
-\draw[rel] (users) -- (nplan) node[card, pos=0.15]{(0,N)} node[card, pos=0.85]{(1,1)};
+\draw[rel] (sess.west) -- ++(-0.6,0) |- (users.north east) node[card, pos=0.05]{(1,1)} node[card, pos=0.95]{(0,N)};
+
+% Points d'ancrage répartis le long du bord sud de USERS — évite que les
+% 8 connexions vers la rangée du bas ne partent toutes du même point.
+\coordinate (u1) at ($(users.south west)!0.04!(users.south east)$);
+\coordinate (u2) at ($(users.south west)!0.17!(users.south east)$);
+\coordinate (u3) at ($(users.south west)!0.30!(users.south east)$);
+\coordinate (u4) at ($(users.south west)!0.43!(users.south east)$);
+\coordinate (u5) at ($(users.south west)!0.57!(users.south east)$);
+\coordinate (u6) at ($(users.south west)!0.70!(users.south east)$);
+\coordinate (u7) at ($(users.south west)!0.83!(users.south east)$);
+\coordinate (u8) at ($(users.south west)!0.96!(users.south east)$);
+
+\draw[relD] (u1) -- (dql.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(0,1)};
+\draw[rel] (u2) -- (med.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(1,1)};
+\draw[rel] (u3) -- (bio.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(1,1)};
+\draw[rel] (u4) -- (diet.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(1,1)};
+\draw[rel] (u5) -- (fit.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(1,1)};
+\draw[rel] (u6) -- (rec.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(1,1)};
+\draw[rel] (u7) -- (wplan.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(1,1)};
+\draw[rel] (u8) -- (nplan.north) node[card, pos=0.12]{(0,N)} node[card, pos=0.88]{(1,1)};
 
 \end{tikzpicture}}
 
