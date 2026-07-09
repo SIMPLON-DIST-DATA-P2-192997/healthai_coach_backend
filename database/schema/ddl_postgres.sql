@@ -35,6 +35,7 @@ CREATE TABLE food_items (
     source          VARCHAR(50) NOT NULL,
     name            VARCHAR(255) NOT NULL,
     brand           VARCHAR(255),
+    category        VARCHAR(50),
     calories_kcal   NUMERIC(7,2) NOT NULL CHECK (calories_kcal >= 0),
     protein_g       NUMERIC(6,2) CHECK (protein_g >= 0),
     carbs_g         NUMERIC(6,2) CHECK (carbs_g >= 0),
@@ -43,7 +44,6 @@ CREATE TABLE food_items (
     sugar_g         NUMERIC(6,2) CHECK (sugar_g >= 0),
     sodium_mg       NUMERIC(7,2) CHECK (sodium_mg >= 0),
     cholesterol_mg  NUMERIC(7,2) CHECK (cholesterol_mg >= 0),
-    serving_size_g  NUMERIC(6,2) CHECK (serving_size_g > 0),
     ingested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (source, external_id)
 );
@@ -54,7 +54,8 @@ COMMENT ON COLUMN food_items.external_id IS 'Identifiant de l''aliment dans la s
 COMMENT ON COLUMN food_items.source IS 'Origine de la donnée (ex. ''kaggle_daily_food_nutrition''). Permet de tracer la provenance et de faire cohabiter plusieurs sources pour le même type de donnée sans collision (cf. UNIQUE(source, external_id)).';
 COMMENT ON COLUMN food_items.name IS 'Nom de l''aliment.';
 COMMENT ON COLUMN food_items.brand IS 'Marque commerciale (optionnelle).';
-COMMENT ON COLUMN food_items.calories_kcal IS 'Apport calorique pour la portion de référence (kcal).';
+COMMENT ON COLUMN food_items.category IS 'Nature de l''aliment déclarée par la source (ex. ''Vegetable'', ''Meal/Processed'', ''Protein/Fish'') — taxonomie libre à deux niveaux séparés par ''/'', propre à chaque source.';
+COMMENT ON COLUMN food_items.calories_kcal IS 'Apport calorique pour une portion de référence de cet aliment (kcal) — voir nutrition_logs.portion_number pour calculer les calories réellement consommées.';
 COMMENT ON COLUMN food_items.protein_g IS 'Protéines (g).';
 COMMENT ON COLUMN food_items.carbs_g IS 'Glucides (g).';
 COMMENT ON COLUMN food_items.fat_g IS 'Lipides (g).';
@@ -62,14 +63,13 @@ COMMENT ON COLUMN food_items.fiber_g IS 'Fibres (g).';
 COMMENT ON COLUMN food_items.sugar_g IS 'Sucres (g).';
 COMMENT ON COLUMN food_items.sodium_mg IS 'Sodium (mg).';
 COMMENT ON COLUMN food_items.cholesterol_mg IS 'Cholestérol alimentaire (mg) — à ne pas confondre avec le cholestérol sanguin de medical_profiles.cholesterol_mg_dl.';
-COMMENT ON COLUMN food_items.serving_size_g IS 'Taille de la portion de référence (g), si connue dans la source.';
 COMMENT ON COLUMN food_items.ingested_at IS 'Date d''ingestion de la ligne par l''ETL.';
 
 CREATE TABLE nutrition_logs (
     log_id          BIGSERIAL PRIMARY KEY,
     user_id         INTEGER NOT NULL,
     food_item_id    INTEGER NOT NULL,
-    quantity_g      NUMERIC(6,2) NOT NULL CHECK (quantity_g > 0),
+    portion_number  NUMERIC(6,2) NOT NULL CHECK (portion_number > 0),
     meal_type       VARCHAR(20) NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
     logged_at       TIMESTAMPTZ NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -81,7 +81,7 @@ COMMENT ON TABLE nutrition_logs IS 'Journal des repas consommés par les utilisa
 COMMENT ON COLUMN nutrition_logs.log_id IS 'Identifiant technique (clé primaire).';
 COMMENT ON COLUMN nutrition_logs.user_id IS 'Utilisateur ayant consommé l''aliment (FK users).';
 COMMENT ON COLUMN nutrition_logs.food_item_id IS 'Aliment consommé (FK food_items).';
-COMMENT ON COLUMN nutrition_logs.quantity_g IS 'Quantité consommée (g).';
+COMMENT ON COLUMN nutrition_logs.portion_number IS 'Nombre de portions consommées (peut être décimal, ex. 1.5) — à multiplier par food_items.calories_kcal pour obtenir les calories réellement consommées, la portion de référence étant déjà encodée dans le nom de l''aliment (ex. ''Scrambled Eggs (2 large)'').';
 COMMENT ON COLUMN nutrition_logs.meal_type IS 'Type de repas : breakfast, lunch, dinner ou snack.';
 COMMENT ON COLUMN nutrition_logs.logged_at IS 'Date/heure du repas.';
 COMMENT ON COLUMN nutrition_logs.created_at IS 'Date d''enregistrement de la ligne en base.';

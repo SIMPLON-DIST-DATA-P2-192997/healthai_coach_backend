@@ -45,8 +45,8 @@ Nécessaire pour l'ETL du Sprint 2 (`etl/extract/`), pas pour lancer le seed (le
 ## Mapping colonnes -> tables
 
 ### `daily_food_nutrition_sample.csv` -> `food_items`
-Correspondance directe : `Calories (kcal)`, `Protein (g)`, `Carbohydrates (g)`, `Fat (g)`, `Fiber (g)`, `Sugars (g)`, `Sodium (mg)`, `Cholesterol (mg)` (colonne ajoutée au schéma pour cette raison).
-**Non utilisées** : `Category`, `Meal_Type`, `Water_Intake (ml)` — attributs de l'aliment sans équivalent dans `food_items` (Meal_Type y est une catégorie usuelle du produit, pas un événement de consommation).
+Correspondance directe : `Calories (kcal)`, `Protein (g)`, `Carbohydrates (g)`, `Fat (g)`, `Fiber (g)`, `Sugars (g)`, `Sodium (mg)`, `Cholesterol (mg)`, `Category` -> `category` (colonnes ajoutées au schéma pour cette raison).
+**Non utilisées** : `Meal_Type`, `Water_Intake (ml)` — attributs de l'aliment sans équivalent dans `food_items` (Meal_Type y est une catégorie usuelle du produit, pas un événement de consommation).
 
 ### `diet_recommendations_sample.csv` -> `users` + `biometric_measurements` + `medical_profiles` + `dietary_preferences` + `fitness_profiles` + `diet_recommendations`
 Un utilisateur synthétique par `Patient_ID` (email `<patient_id>@seed.local`, `date_of_birth` dérivée de `Age`) :
@@ -62,7 +62,7 @@ Toutes ces tables sont historisées (`recorded_at`/`recommended_at`) : un même 
 Un utilisateur synthétique par ligne, une mesure biométrique (`Weight (kg)`, `Height (m)` convertie en cm, `Fat_Percentage`, `Resting_BPM`), une session (`Session_Duration (hours)` -> `started_at`/`ended_at`, `Max_BPM`/`Avg_BPM`, le reste en `notes`), un set unique par session référençant l'exercice correspondant à `Workout_Type` (catalogue `exercises` peuplé à partir des valeurs distinctes de cette colonne), et un profil de forme (`fitness_profiles` : `Workout_Frequency (days/week)`, `Experience_Level`).
 
 ### Données illustratives (sans source Kaggle)
-- `nutrition_logs` : 2 entrées par utilisateur synthétique (10 premiers), aliment et quantité aléatoires — juste pour démontrer la relation `users` <-> `food_items`, ne pas interpréter comme des repas réels.
+- `nutrition_logs` : 2 entrées par utilisateur synthétique (10 premiers), aliment et nombre de portions aléatoires — juste pour démontrer la relation `users` <-> `food_items`, ne pas interpréter comme des repas réels.
 - `data_quality_log` : 3 lignes d'exemple illustrant le format attendu (utile pour tester l'interface admin Gradio du Sprint 5).
 
 ## Point de qualité de données rencontré

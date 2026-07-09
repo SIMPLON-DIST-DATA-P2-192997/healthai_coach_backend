@@ -7,60 +7,80 @@
 -- rejouable sans risque). Metabase détecte ensuite ces vues comme des
 -- tables classiques via "Sync database schema now".
 --
--- Limite connue : pas de KPI "calories consommées". food_items.calories_kcal
--- est exprimé pour une portion de référence (ex. "Scrambled Eggs (2 large)"
--- = 180 kcal), mais serving_size_g n'est renseigné par aucune des 3 sources
--- Kaggle du projet (vérifié sur le dataset complet, pas seulement
--- l'échantillon de seed) : impossible de mettre à l'échelle sur
--- nutrition_logs.quantity_g sans inventer une hypothèse non validée. Les
--- vues ci-dessous s'en tiennent à quantity_g et à des comptages, toujours
--- fiables quelle que soit la source.
+-- Calories consommées = food_items.calories_kcal * nutrition_logs.portion_number
+-- (calories_kcal est exprimé pour une portion nommée, ex. "Scrambled Eggs
+-- (2 large)" = 180 kcal ; portion_number est le nombre de ces portions
+-- consommées, décimal, ex. 1.5). Migration 35edc0b38d0b — voir son
+-- docstring pour l'historique (serving_size_g, jamais renseigné par les
+-- sources Kaggle, a été abandonné au profit de ce calcul).
 -- ============================================================
 
 -- Répartition des entrées de journal par type de repas
 CREATE OR REPLACE VIEW vw_nutrition_meal_type_breakdown AS
 SELECT
-    meal_type,
+    nl.meal_type,
     COUNT(*) AS log_count,
-    COUNT(DISTINCT user_id) AS distinct_users,
-    ROUND(AVG(quantity_g), 1) AS avg_quantity_g
-FROM nutrition_logs
-GROUP BY meal_type
+    COUNT(DISTINCT nl.user_id) AS distinct_users,
+    ROUND(AVG(nl.portion_number), 2) AS avg_portion_number,
+    ROUND(SUM(nl.portion_number * fi.calories_kcal), 1) AS total_calories_kcal,
+    ROUND(AVG(nl.portion_number * fi.calories_kcal), 1) AS avg_calories_kcal
+FROM nutrition_logs nl
+JOIN food_items fi ON fi.food_item_id = nl.food_item_id
+GROUP BY nl.meal_type
 ORDER BY log_count DESC;
 
 COMMENT ON VIEW vw_nutrition_meal_type_breakdown IS
-    'Volume de journalisation nutrition par type de repas (breakfast/lunch/dinner/snack).';
+    'Volume de journalisation et calories consommées par type de repas (breakfast/lunch/dinner/snack).';
 
 -- Aliments les plus journalisés
 CREATE OR REPLACE VIEW vw_nutrition_top_food_items AS
 SELECT
     fi.food_item_id,
     fi.name,
+    fi.category,
     fi.source,
     COUNT(*) AS times_logged,
-    ROUND(SUM(nl.quantity_g), 1) AS total_quantity_g,
-    ROUND(AVG(nl.quantity_g), 1) AS avg_quantity_g
+    ROUND(SUM(nl.portion_number), 2) AS total_portions,
+    ROUND(AVG(nl.portion_number), 2) AS avg_portion_number,
+    ROUND(SUM(nl.portion_number * fi.calories_kcal), 1) AS total_calories_kcal
 FROM nutrition_logs nl
 JOIN food_items fi ON fi.food_item_id = nl.food_item_id
-GROUP BY fi.food_item_id, fi.name, fi.source
+GROUP BY fi.food_item_id, fi.name, fi.category, fi.source
 ORDER BY times_logged DESC;
 
 COMMENT ON VIEW vw_nutrition_top_food_items IS
-    'Aliments les plus fréquemment journalisés, par nombre d''entrées.';
+    'Aliments les plus fréquemment journalisés, par nombre d''entrées, avec calories totales consommées.';
 
--- Volume de journalisation nutrition par utilisateur et par jour
+-- Volume de journalisation et calories consommées par utilisateur et par jour
 CREATE OR REPLACE VIEW vw_nutrition_logs_daily AS
 SELECT
-    user_id,
-    date_trunc('day', logged_at) AS log_date,
+    nl.user_id,
+    date_trunc('day', nl.logged_at) AS log_date,
     COUNT(*) AS entries,
-    ROUND(SUM(quantity_g), 1) AS total_quantity_g
-FROM nutrition_logs
-GROUP BY user_id, date_trunc('day', logged_at)
-ORDER BY log_date, user_id;
+    ROUND(SUM(nl.portion_number), 2) AS total_portions,
+    ROUND(SUM(nl.portion_number * fi.calories_kcal), 1) AS total_calories_kcal
+FROM nutrition_logs nl
+JOIN food_items fi ON fi.food_item_id = nl.food_item_id
+GROUP BY nl.user_id, date_trunc('day', nl.logged_at)
+ORDER BY log_date, nl.user_id;
 
 COMMENT ON VIEW vw_nutrition_logs_daily IS
-    'Nombre d''entrées et quantité totale journalisées (g) par utilisateur et par jour. Pas de calories (cf. limite en tête de fichier).';
+    'Nombre d''entrées, portions et calories totales consommées par utilisateur et par jour.';
+
+-- Calories consommées par catégorie d'aliment
+CREATE OR REPLACE VIEW vw_nutrition_calories_by_category AS
+SELECT
+    COALESCE(fi.category, 'Non renseignée') AS category,
+    COUNT(*) AS log_count,
+    ROUND(SUM(nl.portion_number * fi.calories_kcal), 1) AS total_calories_kcal,
+    ROUND(AVG(nl.portion_number * fi.calories_kcal), 1) AS avg_calories_kcal
+FROM nutrition_logs nl
+JOIN food_items fi ON fi.food_item_id = nl.food_item_id
+GROUP BY fi.category
+ORDER BY total_calories_kcal DESC;
+
+COMMENT ON VIEW vw_nutrition_calories_by_category IS
+    'Calories consommées agrégées par catégorie d''aliment (fi.category, ex. Vegetable, Meal/Processed).';
 
 -- Relevés biométriques avec IMC calculé
 CREATE OR REPLACE VIEW vw_biometric_trend AS
