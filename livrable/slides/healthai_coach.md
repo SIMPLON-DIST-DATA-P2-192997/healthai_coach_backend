@@ -14,7 +14,7 @@ Nutrition, activité physique, qualité des données — de l'ingestion à l'orc
 
 <br>
 
-Alexandre Laugier · Florian · Johane Decamps · William Mibelli
+Alexandre Laugier · Florian Abgrall · Johane Decamps · William Mibelli
 
 Juillet 2026
 
@@ -88,7 +88,7 @@ Deux offres, qui conditionnent des choix techniques concrets :
 | Rôle | Périmètre | Qui |
 |---|---|---|
 | **A** | Architecture, base de données, interface admin, Metabase, dockerisation | Alexandre |
-| **B** | API REST (FastAPI) | Florian |
+| **B** | API REST (FastAPI) | Florian Abgrall |
 | **C** | Pipeline ETL, orchestration Airflow | Johane, William |
 
 Flux de travail : une étape = une Pull Request, tests obligatoires, revue avant fusion
