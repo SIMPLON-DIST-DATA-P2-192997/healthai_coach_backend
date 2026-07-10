@@ -277,6 +277,52 @@ layout: section
 
 ---
 
+# Extraction multi-sources (E)
+
+- **ExerciseDB API** : pagination par curseur (`nextCursor`) pour récupérer l'intégralité du catalogue
+- **Kaggle** : 4 datasets téléchargés automatiquement (Nutrition, Diet, User, Activity)
+- **Rate limiting** : décorateurs `@limits` / `@sleep_and_retry` pour respecter les quotas d'API et éviter les blocages
+- Stockage brut (CSV/JSON) avant toute transformation — étape rejouable indépendamment du reste du pipeline
+
+<!--
+- Travail de Johane et William — la pagination par curseur sur ExerciseDB n'était pas
+  documentée clairement côté API, découverte par tâtonnement
+- Le stockage brut intermédiaire sert de filet de sécurité : en cas d'échec transform/load,
+  pas besoin de retéléchargner
+-->
+
+---
+
+# Nettoyage & anonymisation (T)
+
+- **Anonymisation** : `Faker` avec `seed=42` déterministe — faux noms/emails cohérents, mais reproductibles d'un run à l'autre (tests, debug)
+- **Normalisation** : `'Male'/'Female'` → `'M'/'F'`, valeurs manquantes → `'other'`
+- **Dérivation de champs** : date de naissance calculée depuis l'âge fourni, `ended_at` des sessions calculé depuis la durée
+
+<!--
+- Le seed=42 déterministe est ce qui a permis de repérer le bug 'Other' vs 'other'
+  (diapo précédente sur les contraintes CHECK) — un run non déterministe l'aurait masqué
+  de façon aléatoire selon les données tirées
+- Dérivation de ended_at : nécessaire car la source ne fournit que la durée, pas l'horodatage de fin
+-->
+
+---
+
+# Chargement PostgreSQL (L)
+
+- **Tables de staging** : injection rapide via `to_sql` dans des tables temporaires, avant bascule vers les tables finales
+- **Stratégie UPSERT** : `ON CONFLICT ... DO UPDATE` pour les catalogues (`food_items`, `exercises`) — idempotent, pas de doublons en cas de relance
+- **Historisation différenciée** : séries temporelles biométriques ajoutées en continu, dimensions (profils utilisateurs) synchronisées
+
+<!--
+- Le passage par une table de staging évite de verrouiller la table finale pendant tout
+  le chargement — important une fois qu'Airflow orchestre ça en tâche de fond quotidienne
+- Historisation différenciée : biométrie = append-only (on veut la série complète),
+  profils = upsert (on ne garde que l'état courant)
+-->
+
+---
+
 # Orchestration Airflow
 
 - **Un DAG unique** plutôt qu'un DAG par source : le volume ne justifie pas plus de granularité
