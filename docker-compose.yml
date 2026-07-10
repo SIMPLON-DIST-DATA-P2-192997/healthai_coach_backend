@@ -61,6 +61,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
     depends_on:
       postgres:
         condition: service_healthy
