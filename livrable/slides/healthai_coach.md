@@ -19,7 +19,7 @@ Alexandre Laugier · Florian Abgrall · Johane Decamps · William Mibelli
 Juillet 2026
 
 <!--
-- Bonsoir, je présente le backend data de HealthAI Coach, une plateforme de coaching santé
+- Bonjour, je présente le backend data de HealthAI Coach, une plateforme de coaching santé
 - Équipe de 4 : répartition en 3 rôles (architecture/data, API, ETL)
 - Plan : contexte -> architecture -> ce qui a été construit -> démo live -> bilan
 - Durée cible ~50 min avec la démo
