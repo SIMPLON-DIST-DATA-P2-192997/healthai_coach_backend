@@ -395,6 +395,18 @@ layout: section
 
 ---
 
+# Documentation interactive (Swagger UI)
+
+<img src="./img/swagger_ui.png" class="mx-auto w-full rounded shadow" />
+
+<!--
+- Générée automatiquement par FastAPI depuis les schémas Pydantic — aucune doc à maintenir à la main
+- Accessible sur /docs, testable en direct (bouton Authorize + JWT) : c'est ce qu'on va montrer
+  pendant la démo live plutôt que de rester sur cette capture
+-->
+
+---
+
 # Abonnements & microservice IA
 
 - Contenu IA (`/ai/diet-recommendations`, `/ai/workout-plans`, `/ai/nutrition-plans`) : 403 en `free`, 401 sans auth
