@@ -93,7 +93,7 @@
        \large HealthAI Coach — Projet Data Engineering\\[0.2em]
        \normalsize Simplon Formation Data Engineer}
 \author{Alexandre Laugier\thanks{Rôle A — Architecte / Lead Data Engineer : schéma base de données, interface admin (Gradio), dashboard Metabase, dockerisation}
-        \and Florian\thanks{Rôle B — API REST (FastAPI)}
+        \and Florian Abgrall\thanks{Rôle B — API REST (FastAPI)}
         \and Johane Decamps \and William Mibelli\thanks{Rôle C — ETL (extract/transform/load), orchestration Airflow}}
 \date{Juillet 2026}
 
@@ -118,7 +118,7 @@ HealthAI Coach est une plateforme de coaching santé : suivi nutritionnel, suivi
 
 Le modèle économique conditionne plusieurs choix techniques documentés dans ce rapport : offre freemium (\texttt{free}/\texttt{premium}/\texttt{premium\_plus}) avec fonctionnalités IA réservées aux paliers payants, et offre B2B en marque blanche pour des organisations partenaires (salles de sport, mutuelles, entreprises), provisionnée par un administrateur plutôt qu'en self-service.
 
-Travail réparti en trois rôles : Rôle A — architecture, base de données, interface admin (qualité des données), dashboard Metabase et dockerisation (Alexandre Laugier) ; Rôle B — API REST FastAPI (Florian) ; Rôle C — pipeline ETL et orchestration Airflow (Johane Decamps, William Mibelli). Le développement suit un flux Pull Request systématique (une étape = une PR, tests obligatoires, revue avant fusion) détaillé dans \texttt{docs/plan\_de\_developpement.md}.
+Travail réparti en trois rôles : Rôle A — architecture, base de données, interface admin (qualité des données), dashboard Metabase et dockerisation (Alexandre Laugier) ; Rôle B — API REST FastAPI (Florian Abgrall) ; Rôle C — pipeline ETL et orchestration Airflow (Johane Decamps, William Mibelli). Le développement suit un flux Pull Request systématique (une étape = une PR, tests obligatoires, revue avant fusion) détaillé dans \texttt{docs/plan\_de\_developpement.md}.
 
 % =============================================================================
 \section{Architecture du système}
@@ -401,6 +401,29 @@ FastAPI (\texttt{api/main.py}), toutes les routes préfixées \texttt{/api/v1}. 
 \end{itemize}
 
 Authentification par JWT (OAuth2 password flow) : \texttt{POST /auth/login} renvoie un jeton, envoyé ensuite en \texttt{Authorization: Bearer <token>}. Trois dépendances FastAPI réutilisables (\texttt{api/core/deps.py}) portent le contrôle d'accès : \texttt{CurrentUser} (authentifié), \texttt{CurrentAdmin} (403 si \texttt{is\_admin} faux), \texttt{CurrentPremiumUser} (403 hors palier payant, cf. \S5.3) — déclarées une fois, réutilisées comme simple type d'argument dans la signature de chaque route protégée. Documentation interactive auto-générée : \texttt{/docs} (Swagger UI), \texttt{/redoc}.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.62\textwidth}{!}{%
+\begin{tikzpicture}[node distance=0.9cm, >=Stealth,
+  box/.style={draw=dbblue, line width=0.8pt, rounded corners=2pt, fill=dbblue!6, minimum height=1.1cm, minimum width=6cm, align=center, font=\footnotesize},
+  hub/.style={box, fill=dbblue!16}]
+
+\node[box] (client) {Client HTTP\\\scriptsize requête + \texttt{Authorization: Bearer <token>}};
+\node[box, below=of client] (auth) {\texttt{CurrentUser} / \texttt{CurrentAdmin} / \texttt{CurrentPremiumUser}\\\scriptsize décode le JWT, vérifie le rôle — 401/403 si échec};
+\node[box, below=of auth] (router) {\texttt{routers/}\\\scriptsize valide la requête via \texttt{schemas/} (Pydantic)};
+\node[box, below=of router] (crud) {\texttt{crud/}\\\scriptsize requêtes SQLAlchemy, indépendant de FastAPI};
+\node[hub, below=of crud] (models) {\texttt{models/} (ORM) $\rightarrow$ PostgreSQL};
+
+\draw[rel, ->] (client) -- (auth);
+\draw[rel, ->] (auth) -- (router);
+\draw[rel, ->] (router) -- (crud);
+\draw[rel, ->] (crud) -- (models);
+
+\end{tikzpicture}}
+\caption{API REST — flux d'une requête authentifiée : vérification d'accès avant tout traitement métier, puis séparation stricte HTTP (\texttt{routers/}) / accès données (\texttt{crud/}) / persistance (\texttt{models/}).}
+\label{fig:api-archi}
+\end{figure}
 
 \subsection{Endpoints principaux}
 
