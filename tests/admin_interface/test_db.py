@@ -16,9 +16,14 @@ import psycopg2.extras
 import pytest
 
 DDL_PATH = Path(__file__).resolve().parents[2] / "database" / "schema" / "ddl_postgres.sql"
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://healthai:changeme@localhost:5432/healthai_coach"
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL doit être défini explicitement (instance Postgres jetable) — "
+        "cette suite fait DROP TABLE ... CASCADE à chaque exécution (cf. docstring "
+        "du module), pas de valeur par défaut pointant vers une base pouvant "
+        "contenir de vraies données."
+    )
 # admin_interface.db lit DATABASE_URL au moment de l'import (constante de
 # module) : on s'assure qu'elle est fixée avant l'import pour que ses
 # fonctions ouvrent leurs connexions vers la même base que cette suite.
