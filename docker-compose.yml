@@ -1,6 +1,5 @@
-# Sprint 6 : postgres, db-init (migrations + seed + vues KPI), admin_interface,
-# metabase et airflow sont complets. api reste en stub commenté, en attente du
-# Dockerfile de l'équipe API (Rôle B).
+# Sprint 6 : tous les services sont complets (postgres, db-init, api,
+# admin_interface, metabase, airflow).
 # Objectif Sprint 6 : `docker compose up` -> environnement fonctionnel en < 30 min
 # (une seule commande : postgres démarre, db-init peuple la base une fois
 # postgres prêt, puis admin_interface/metabase/airflow démarrent avec des
@@ -94,10 +93,21 @@ services:
       db-init:
         condition: service_completed_successfully
 
-  # api:
-  #   Sprint 4 (Rôle C). Pas de Dockerfile côté api/ pour le moment —
-  #   à ajouter ici une fois fourni par l'équipe API (variables déjà
-  #   prévues dans .env.example : API_HOST, API_PORT, JWT_*).
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
+    ports:
+      - "${API_PORT}:8000"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
 
   airflow-init:
     <<: *airflow-common

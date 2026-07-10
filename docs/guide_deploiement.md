@@ -13,7 +13,7 @@ C'est tout. `docker compose up` orchestre dans l'ordre :
 
 1. **`postgres`** démarre, attend d'être `healthy` (`pg_isready`). Le tout premier démarrage (volume vierge) exécute aussi les scripts de `database/init/` : création des bases `metabase` et `airflow`, séparées de `healthai_coach` (cf. `database/init/01_create_metabase_db.sql`, `02_create_airflow_db.sql`).
 2. **`db-init`** (une fois `postgres` prêt) applique dans l'ordre : migrations Alembic (`alembic upgrade head`), seed de données de test (`database/seed/seed_data.py`), vues KPI Metabase (`dashboard/kpi_queries/*.sql`) — puis s'arrête (conteneur à usage unique, `exit 0` attendu).
-3. **`admin_interface`**, **`metabase`** et **`airflow-init`** ne démarrent qu'une fois `db-init` terminé avec succès (`condition: service_completed_successfully`) — la base est déjà peuplée quand ils apparaissent, jamais de démarrage sur un schéma vide.
+3. **`api`**, **`admin_interface`**, **`metabase`** et **`airflow-init`** ne démarrent qu'une fois `db-init` terminé avec succès (`condition: service_completed_successfully`) — la base est déjà peuplée quand ils apparaissent, jamais de démarrage sur un schéma vide.
 4. **`airflow-webserver`** et **`airflow-scheduler`** démarrent une fois `airflow-init` terminé (migration de la base de métadonnées Airflow + création du compte admin).
 
 **Remarque volume existant** : `database/init/*.sql` ne s'exécute qu'au tout premier démarrage d'un volume `postgres_data` vierge (comportement standard de l'image `postgres`). Si tu as déjà une stack qui tournait avant l'ajout d'Airflow, la base `airflow` n'existe pas encore sur ton volume — créer une fois manuellement :
@@ -45,6 +45,7 @@ En attendant : si tu viens de faire tourner le DAG Airflow et que tu veux garder
 
 | Service | URL | Identifiants |
 |---|---|---|
+| API (Swagger UI) | http://localhost:8000/docs | — (`POST /auth/login` pour un token JWT) |
 | Interface admin (Gradio) | http://localhost:7860 | — |
 | Metabase | http://localhost:3000 | à créer au premier lancement (voir ci-dessous) |
 | Airflow | http://localhost:8080 | `airflow` / `airflow` (`_AIRFLOW_WWW_USER_*` dans `.env`, à changer hors démo locale) |
@@ -100,13 +101,17 @@ docker exec -i healthai_coach_backend-postgres-1 psql -U healthai -d healthai_co
 
 Après un reseed manuel, si Metabase doit refléter les nouvelles données : pas d'action nécessaire pour les tables/vues déjà synchronisées, Metabase interroge la base en direct à chaque question/dashboard.
 
-## Lancer l'API en local (hors docker-compose, en attendant le Dockerfile de Florian)
+## Lancer l'API en local (développement actif, hors docker-compose)
+
+`docker compose up` suffit pour avoir l'API qui tourne (service `api`, cf. tableau ci-dessus), mais son image ne fait pas de rechargement à chaud. Pour itérer sur le code de `api/` sans reconstruire l'image à chaque changement :
 
 ```bash
 source .venv/bin/activate
 pip install -r api/requirements.txt
 DATABASE_URL=postgresql://healthai:changeme@localhost:5432/healthai_coach JWT_SECRET_KEY=dev-secret uvicorn api.main:app --reload --port 8000
 ```
+
+(Nécessite `postgres` déjà démarré et migré — `docker compose up -d postgres db-init` suffit sans lancer le reste de la stack.)
 
 `http://localhost:8000/` redirige automatiquement vers `/docs` (Swagger UI) ; `/redoc` pour ReDoc.
 
@@ -121,12 +126,7 @@ Checklist pour une démo live sans mauvaise surprise. **Lire l'avertissement à 
    ```
 2. **Interface admin** (http://localhost:7860) — montrer le tableau des anomalies de qualité (données de démo `seed_data.py`), filtrer par sévérité, résoudre une anomalie, exporter en CSV/JSON.
 3. **Metabase** (http://localhost:3000) — se connecter si pas déjà fait (section dédiée ci-dessus), montrer le schéma `healthai_coach` et une ou deux vues KPI (`vw_nutrition_meal_type_breakdown`, `vw_biometric_trend`...).
-4. **API** (hors docker-compose en attendant le Dockerfile de Florian) :
-   ```bash
-   source .venv/bin/activate
-   DATABASE_URL=postgresql://healthai:changeme@localhost:5432/healthai_coach JWT_SECRET_KEY=dev-secret uvicorn api.main:app --reload --port 8000
-   ```
-   Ouvrir http://localhost:8000/docs — Swagger UI, montrer l'authentification (`POST /auth/login`), un endpoint self-service (`GET /users/me`), et si pertinent le gating premium sur `/ai/*` (403 en `free`, 201 après `POST /subscriptions`).
+4. **API** — déjà démarrée par `docker compose up` (service `api`). Ouvrir http://localhost:8000/docs — Swagger UI, montrer l'authentification (`POST /auth/login`), un endpoint self-service (`GET /users/me`), et si pertinent le gating premium sur `/ai/*` (403 en `free`, 201 après `POST /subscriptions`).
 5. **Airflow** (http://localhost:8080, `airflow`/`airflow`) — montrer le DAG `healthai_etl_pipeline`, le déclencher (bouton Play), suivre l'exécution des 3 tâches en direct (Graph view), puis retourner sur l'interface admin/Metabase pour montrer les **vraies données ETL** venant de remplacer les données de démo (ex. `SELECT COUNT(*) FROM users` passe de 101 à plusieurs milliers).
 
    **⚠️ Piège à éviter pendant la démo** : une fois le DAG déclenché avec succès, **ne plus relancer `docker compose up` ni redémarrer `admin_interface`/`metabase`** — cela redéclenche `db-init`, qui `TRUNCATE` tout et revient aux données de démo (confirmé empiriquement, cf. section "Point de vigilance" plus haut, et le rapport section Bilan). Si la démo doit repartir de zéro, c'est le seul moment où le relancer sans risque.
@@ -141,6 +141,6 @@ docker compose down -v       # + supprime le volume (repart de zéro au prochain
 ## Dépannage
 
 - **`admin_interface` crash au démarrage avec `UndefinedTable`** : ne devrait plus arriver depuis l'ajout de `db-init` (dépendance `service_completed_successfully`) — si ça se produit quand même, vérifier que `db-init` s'est bien terminé en `Exited (0)` (`docker compose logs db-init`) avant de relancer `admin_interface`.
-- **Port déjà utilisé** (`5432`, `7860`, `3000`) : un autre conteneur ou service local occupe le port. `docker ps` pour identifier, ou changer le port hôte dans `.env` (`POSTGRES_PORT`, `ADMIN_INTERFACE_PORT`, `METABASE_PORT`).
+- **Port déjà utilisé** (`5432`, `7860`, `3000`, `8000`) : un autre conteneur ou service local occupe le port. `docker ps` pour identifier, ou changer le port hôte dans `.env` (`POSTGRES_PORT`, `ADMIN_INTERFACE_PORT`, `METABASE_PORT`, `API_PORT`).
 - **Machine qui sature en mémoire avec plusieurs stacks docker-compose actives en parallèle** (ex. cette stack + une stack Airflow séparée) : arrêter les stacks non utilisées (`docker compose -p <projet> down`) plutôt que de les laisser tourner en continu — `docker ps` liste tous les conteneurs actifs tous projets confondus pour identifier ce qui peut être coupé. En dernier recours avant de lancer Airflow : `docker compose stop admin_interface metabase` le temps du test, ils se relancent en quelques secondes ensuite.
 - **Tâche `extract` du DAG Airflow en échec avec `PermissionError: [Errno 13] Permission denied: './etl/data'`** : le conteneur Airflow tourne avec l'UID non-root `AIRFLOW_UID` (50000 par défaut), qui n'a pas le droit d'écrire dans `etl/data/` monté depuis l'hôte si ce dossier n'existe pas encore ou appartient à un autre utilisateur. Fix : `mkdir -p etl/data && chmod 777 etl/data` sur l'hôte avant de relancer le DAG.
