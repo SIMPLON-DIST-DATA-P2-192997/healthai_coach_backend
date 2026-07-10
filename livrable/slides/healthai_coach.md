@@ -51,6 +51,10 @@ layout: section
 
 # 01 · Contexte & objectifs
 
+<!--
+- Poser le décor avant de rentrer dans le technique : qui, pourquoi, pour qui
+-->
+
 ---
 
 # HealthAI Coach, c'est quoi ?
@@ -103,6 +107,10 @@ layout: section
 ---
 
 # 02 · Architecture du système
+
+<!--
+- Transition : maintenant qu'on sait pourquoi, comment le système est structuré globalement
+-->
 
 ---
 
@@ -161,6 +169,10 @@ layout: section
 
 # 03 · Modélisation des données
 
+<!--
+- Cœur du projet : tout le reste (ETL, API, admin) s'organise autour de ce schéma
+-->
+
 ---
 
 # Le schéma en un coup d'œil
@@ -195,8 +207,40 @@ layout: section
   → upsert (`ON CONFLICT DO UPDATE`), les DAG Airflow peuvent être rejoués sans dupliquer
 - **Génération de données manquantes** : `Faker.seed()` déterministe par ligne source
   → un même utilisateur ne change pas de nom à chaque ré-exécution du pipeline
-- **Cohérence métier en base**, pas dans le code : ex. `chk_subscriptions_b2b_organization`
-  garantit qu'une organisation n'est renseignée que pour les abonnements B2B
+
+Un bug réel, capturé par la contrainte plutôt que par les tests :
+
+```sql
+sex VARCHAR(10) CHECK (sex IN ('F', 'M', 'other'))
+```
+
+```python
+# ETL : 'Other' (majuscule) ≠ 'other' → rejeté par PostgreSQL,
+# mais les 4 tests unitaires du module (entrées mockées) passaient
+users["sex"] = users["sex"].replace({"None": "Other"})
+```
+
+<!--
+- La contrainte CHECK a fait exactement son travail : bloquer une donnée invalide en base
+- Les tests unitaires mockaient l'entrée, donc ne touchaient jamais la vraie contrainte —
+  c'est ce qui a motivé la discipline "toujours retester contre un vrai Postgres" pour la suite
+-->
+
+---
+
+# Conventions d'intégrité (suite)
+
+- **Cohérence métier en base**, pas dans le code applicatif :
+
+```sql
+CONSTRAINT chk_subscriptions_b2b_organization
+  CHECK ((tier = 'b2b' AND organization_id IS NOT NULL)
+      OR (tier <> 'b2b' AND organization_id IS NULL))
+```
+
+- Garantit qu'une organisation n'est renseignée que pour les abonnements B2B, et inversement —
+  impossible à contourner en écrivant directement en base, contrairement à une validation
+  uniquement côté API
 
 <!--
 - Point à raconter : un bug réel où l'ETL produisait 'Other' (majuscule) au lieu de 'other',
@@ -208,6 +252,10 @@ layout: section
 ---
 
 # 04 · Pipeline ETL & orchestration Airflow
+
+<!--
+- Section la plus riche en obstacles réels rencontrés — bien la préparer
+-->
 
 ---
 
@@ -229,9 +277,18 @@ layout: section
 
 - **Un DAG unique** plutôt qu'un DAG par source : le volume ne justifie pas plus de granularité
 - `extract` → `transform_and_load` → `quality_check`, séquentiel, `@daily`
-- **Problème réel rencontré** : Airflow exige `SQLAlchemy<2.0` en interne, incompatible avec le
-  `2.0.51` utilisé partout ailleurs dans le projet
-  → **venv Python isolé** (`/opt/etl-venv`) à l'intérieur de l'image Airflow, tâches en `BashOperator`
+- **Problème réel** : Airflow exige `SQLAlchemy<2.0` en interne, incompatible avec le `2.0.51`
+  utilisé partout ailleurs → **venv Python isolé** (`/opt/etl-venv`), tâches en `BashOperator`
+
+```python
+# airflow/dags/healthai_etl_pipeline.py
+transform_and_load_task = BashOperator(
+    task_id="transform_and_load",
+    bash_command=f"cd {WORKDIR} && {ETL_PYTHON} -c "
+                  "'from etl.load.postgres_loader import load_data; load_data()'",
+)
+```
+
 - Testé de bout en bout avec de **vraies données** : 2851 users, 645 food_items, 404 exercises chargés
 
 <!--
@@ -246,6 +303,10 @@ layout: section
 
 # 05 · API REST
 
+<!--
+- Transition : les données sont en base, comment on les expose — rôle B, Florian
+-->
+
 ---
 
 # Structure
@@ -255,6 +316,14 @@ layout: section
 - Authentification **JWT** (OAuth2 password flow) : `POST /auth/login`
 - Trois dépendances réutilisables : `CurrentUser`, `CurrentAdmin`, `CurrentPremiumUser`
 - Documentation interactive auto-générée : `/docs` (Swagger), `/redoc`
+
+<!--
+- La séparation models/ (ORM SQLAlchemy) vs schemas/ (Pydantic) n'est pas cosmétique :
+  ça évite d'exposer par accident une colonne sensible comme hashed_password dans une réponse API
+- Les trois dépendances (CurrentUser/CurrentAdmin/CurrentPremiumUser) sont déclarées une fois
+  et réutilisées comme simple type d'argument — pas de code de vérification dupliqué par route
+- On montrera /docs en direct pendant la démo
+-->
 
 ---
 
@@ -267,14 +336,33 @@ layout: section
 - **subscriptions / organizations** — abonnements self-service + provisionnement B2B
 - **ai** — génération de contenu, réservée aux paliers payants
 
+<!--
+- Distinction à faire à l'oral : les catalogues (food-items/exercises) sont alimentés par l'ETL,
+  pas par les utilisateurs — lecture libre mais écriture réservée aux admins
+- data-quality duplique volontairement une partie de l'interface Gradio : utile pour l'intégration
+  avec d'autres outils (scripts, monitoring), pas juste pour l'humain derrière l'écran
+-->
+
 ---
 
 # Abonnements & microservice IA
 
 - Contenu IA (`/ai/diet-recommendations`, `/ai/workout-plans`, `/ai/nutrition-plans`) : 403 en `free`, 401 sans auth
+- Une dépendance FastAPI réutilisable porte tout le contrôle d'accès :
+
+```python
+# api/core/deps.py
+def get_current_premium_user(current_user: CurrentUser, db: DB) -> User:
+    subscription = get_active_subscription(db, current_user.id)
+    if not subscription or subscription.tier not in PREMIUM_TIERS:
+        raise HTTPException(status_code=403, detail="Premium subscription required")
+    return current_user
+
+CurrentPremiumUser = Annotated[User, Depends(get_current_premium_user)]
+```
+
 - Microservice pas encore déployé → **client stub** (`api/services/ai_client.py`) reproduisant
-  la signature du futur appel HTTP réel
-- Objectif : brancher le vrai microservice ne changera que ce fichier, pas les routers ni le contrat exposé
+  la signature du futur appel HTTP réel — brancher le vrai microservice ne changera que ce fichier
 - Vérifié par des tests réels contre PostgreSQL (gating, persistance, isolation par utilisateur)
 
 <!--
@@ -286,6 +374,10 @@ layout: section
 ---
 
 # 06 · Interface admin & qualité des données
+
+<!--
+- Ici on revient sur le périmètre du rôle A : l'outil de pilotage qualité, pas l'app utilisateur
+-->
 
 ---
 
@@ -319,6 +411,10 @@ layout: section
 
 # 07 · Dashboard Metabase
 
+<!--
+- Complémentaire à l'interface admin : vue d'ensemble/tendances plutôt que résolution au cas par cas
+-->
+
 ---
 
 # Metabase
@@ -338,6 +434,10 @@ layout: section
 ---
 
 # 08 · Dockerisation
+
+<!--
+- Comment tout ce qu'on vient de voir se lance en une seule commande
+-->
 
 ---
 
@@ -375,6 +475,10 @@ layout: section
 
 # 09 · Tests & CI/CD
 
+<!--
+- Ce qui donne confiance que tout ce qui a été montré fonctionne vraiment, pas juste "sur ma machine"
+-->
+
 ---
 
 # Suite de tests
@@ -400,6 +504,10 @@ layout: section
 
 # 10 · Démonstration live
 
+<!--
+- Moment de bascule terminal/navigateur — prévenir le jury qu'on quitte les slides quelques minutes
+-->
+
 ---
 
 # Ce qu'on va montrer
@@ -419,6 +527,10 @@ layout: section
 ---
 
 # 11 · Bilan & conclusion
+
+<!--
+- Retour sur les slides après la démo : prendre du recul sur ce qui a été montré
+-->
 
 ---
 
@@ -444,6 +556,13 @@ layout: section
 - Schéma auto-documenté, conventions lisibles depuis la base elle-même
 - Convention d'idempotence définie une fois, reprise à l'identique sur chaque nouvelle source
 - Discipline de revue systématique : checkout isolé, tests rejoués contre Postgres frais, jamais de confiance aveugle
+
+<!--
+- Insister ici : ces points positifs ne sont pas juste "ça a marché", ce sont des choix
+  d'architecture délibérés pris tôt (Sprint 1) qui ont payé plus tard dans le projet
+- La discipline de revue a concrètement empêché plusieurs bugs (CHECK sex, source ETL divergente)
+  d'arriver jusqu'en production — bon moment pour faire le lien avec le slide précédent
+-->
 
 ---
 
