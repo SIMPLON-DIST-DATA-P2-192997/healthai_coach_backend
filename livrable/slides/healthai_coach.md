@@ -348,6 +348,21 @@ transform_and_load_task = BashOperator(
 -->
 
 ---
+
+# Tableau de bord Airflow
+
+<img src="./img/airflow_dashboard.png" class="mx-auto w-full rounded shadow" />
+
+<!--
+- Vue "DAGs" (page d'accueil) : un DAG enregistré, schedule @daily, 2 runs réussis / 1 échoué
+  visible dans l'historique — pas nettoyé volontairement, cohérent avec le reste de la présentation
+  qui assume les obstacles réels plutôt que de les cacher
+- L'échec en question vient d'un problème de permissions sur airflow/logs/ (le
+  DagFileProcessorManager n'arrivait plus à écrire), corrigé et documenté dans le guide de déploiement
+- On va déclencher un run en direct dans quelques instants
+-->
+
+---
 layout: section
 ---
 
