@@ -277,12 +277,14 @@ layout: section
 
 ---
 
-# Extraction multi-sources (E)
+# Extraction  (E)
 
 - **ExerciseDB API** : pagination par curseur (`nextCursor`) pour récupérer l'intégralité du catalogue
-- **Kaggle** : 4 datasets téléchargés automatiquement (Nutrition, Diet, User, Activity)
 - **Rate limiting** : décorateurs `@limits` / `@sleep_and_retry` pour respecter les quotas d'API et éviter les blocages
+- **Kaggle** : 4 datasets téléchargés automatiquement (Nutrition, Diet, User, Activity)
 - Stockage brut (CSV/JSON) avant toute transformation — étape rejouable indépendamment du reste du pipeline
+
+
 
 <!--
 - Travail de Johane et William — la pagination par curseur sur ExerciseDB n'était pas
@@ -293,10 +295,11 @@ layout: section
 
 ---
 
-# Nettoyage & anonymisation (T)
+# Transformation (T)
 
+- **Nettoyage des données** : Concaténation de certains dataframe, modifications des types données
 - **Anonymisation** : `Faker` avec `seed=42` déterministe — faux noms/emails cohérents, mais reproductibles d'un run à l'autre (tests, debug)
-- **Normalisation** : `'Male'/'Female'` → `'M'/'F'`, valeurs manquantes → `'other'`
+- **Normalisation** : `'Male'/'Female'` → `'M'/'F'`, valeurs manquantes → `'other'`, renommage des colonnes
 - **Dérivation de champs** : date de naissance calculée depuis l'âge fourni, `ended_at` des sessions calculé depuis la durée
 
 <!--
