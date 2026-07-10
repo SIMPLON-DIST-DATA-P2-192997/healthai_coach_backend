@@ -131,7 +131,7 @@ Sources externes (Kaggle, API ExerciseDB)
              (Gradio)
 ```
 
-Tout conteneurisé via `docker compose` (sept services), une seule commande
+Tout conteneurisé via `docker compose` (huit services), une seule commande
 
 <!--
 - L'ETL alimente Postgres, orchestré par Airflow
@@ -518,13 +518,13 @@ layout: section
 
 ---
 
-# Sept services, une commande
+# Huit services, une commande
 
 ```bash
 docker compose up -d --build
 ```
 
-- **postgres** → **db-init** (migrations + seed + vues KPI) → **admin_interface** / **metabase** / **airflow-init** → **airflow-webserver** / **airflow-scheduler**
+- **postgres** → **db-init** (migrations + seed + vues KPI) → **api** / **admin_interface** / **metabase** / **airflow-init** → **airflow-webserver** / **airflow-scheduler**
 - Airflow en `LocalExecutor` + base partagée sur le postgres du projet, pas le stack Celery+Redis complet vu en formation
   → un DAG unique ne justifie pas plusieurs workers, et la RAM de la machine de démo ne suit pas
 
