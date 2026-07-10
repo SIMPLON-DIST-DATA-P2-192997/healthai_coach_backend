@@ -148,7 +148,7 @@ Tout conteneurisé via `docker compose` (sept services), une seule commande
 | Composant | Techno | Pourquoi |
 |---|---|---|
 | Base de données | PostgreSQL | Domaine relationnel — contraintes CHECK/FK portent les règles métier |
-| Migrations | Alembic | |
+| Migrations | Alembic | Schéma versionné et rejouable (upgrade/downgrade), historique traçable en équipe |
 | Orchestration | Apache Airflow | |
 | API | FastAPI | SQLAlchemy, Pydantic, JWT |
 | Dashboard | Metabase | |
@@ -160,6 +160,10 @@ Tout conteneurisé via `docker compose` (sept services), une seule commande
 <!--
 - PostgreSQL plutôt que NoSQL : les contraintes d'intégrité (CHECK, FK) auraient dû être
   réimplémentées côté application dans un magasin sans schéma — pas un choix par défaut, un choix motivé
+- Alembic : outil de migration de schéma pour SQLAlchemy — chaque évolution (ex. ajout
+  organizations/subscriptions, puis workout_plans/nutrition_plans) devient un script Python
+  versionné et rejouable, avec l'historique suivi en base via la table alembic_version
+  (plutôt que des ALTER TABLE manuels non tracés)
 - Gradio : compromis assumé, au prix de limitations d'accessibilité qu'on détaillera
 -->
 
