@@ -147,7 +147,7 @@ Travail réparti en trois rôles : Rôle A — architecture, base de données, i
 \draw[rel, ->] (pg) -- (metabase);
 
 \end{tikzpicture}}
-\caption{Vue d'ensemble — l'ETL alimente PostgreSQL (orchestré par Airflow), consommé en aval par l'API REST, l'interface admin et Metabase. Tout le périmètre (hors \texttt{api}/\texttt{airflow}, en attente des Dockerfile des équipes concernées à date de rédaction) est conteneurisé via \texttt{docker compose} (cf. \S\ref{sec:docker}).}
+\caption{Vue d'ensemble — l'ETL alimente PostgreSQL (orchestré par Airflow), consommé en aval par l'API REST, l'interface admin et Metabase. L'ensemble du périmètre est conteneurisé via \texttt{docker compose} (cf. \S\ref{sec:docker}).}
 \label{fig:archi}
 \end{figure}
 
@@ -173,7 +173,7 @@ CI & GitHub Actions \\
 \caption{Stack technique (\texttt{README.md}).}
 \end{table}
 
-Deux choix méritent d'être justifiés au-delà du tableau : \textbf{PostgreSQL} plutôt qu'un SGBD NoSQL, parce que le domaine (utilisateurs, journaux nutrition/exercice historisés, contraintes d'intégrité inter-tables) est structurellement relationnel — les nombreuses contraintes \texttt{CHECK}/\texttt{FOREIGN KEY} qui portent une partie significative des règles métier (cf. \S3.2) auraient dû être réimplémentées côté application dans un magasin sans schéma. \textbf{Gradio} plutôt qu'un framework front complet (React, Streamlit) pour l'interface admin, parce qu'il s'agit d'un outil interne à faible surface (un seul écran, quelques formulaires) où la rapidité de mise en œuvre prime sur la personnalisation visuelle — au prix de limitations d'accessibilité propres au composant \texttt{Dataframe}, documentées en \S\ref{sec:admin-interface}.
+Deux choix méritent d'être justifiés au-delà du tableau : \textbf{PostgreSQL}~\citep{postgresql} plutôt qu'un SGBD NoSQL, parce que le domaine (utilisateurs, journaux nutrition/exercice historisés, contraintes d'intégrité inter-tables) est structurellement relationnel — les nombreuses contraintes \texttt{CHECK}/\texttt{FOREIGN KEY} qui portent une partie significative des règles métier (cf. \S3.2) auraient dû être réimplémentées côté application dans un magasin sans schéma. \textbf{Gradio}~\citep{gradio} plutôt qu'un framework front complet (React, Streamlit) pour l'interface admin, parce qu'il s'agit d'un outil interne à faible surface (un seul écran, quelques formulaires) où la rapidité de mise en œuvre prime sur la personnalisation visuelle — au prix de limitations d'accessibilité propres au composant \texttt{Dataframe}, documentées en \S\ref{sec:admin-interface}.
 
 % =============================================================================
 \section{Modélisation des données}
@@ -307,7 +307,7 @@ Le schéma s'appuie sur PostgreSQL pour porter un maximum de règles métier dir
 
   \item \textbf{Idempotence au chargement} — \texttt{food\_items} et \texttt{exercises} portent \texttt{UNIQUE(source, external\_id)} : la paire (origine de la donnée, identifiant dans la source) sert de clé d'upsert (\texttt{INSERT ... ON CONFLICT DO UPDATE}) pour que les DAG Airflow puissent être rejoués sans dupliquer les données. Point de vigilance documenté et transmis à l'équipe ETL : \texttt{biometric\_measurements} porte \texttt{UNIQUE(user\_id, measured\_at)} et non \texttt{UNIQUE(user\_id, source)} — si le chargement fixe \texttt{measured\_at = now()} au moment de l'ingestion, chaque ré-exécution génère un nouveau relevé au lieu de mettre à jour l'existant.
 
-  \item \textbf{Génération de données manquantes, sans casser l'idempotence} — les datasets sources n'ont pas de champ nom (\texttt{first\_name}/\texttt{last\_name}, \texttt{NOT NULL} en base). Convention retenue : \texttt{Faker} avec une seed déterministe par ligne source (\texttt{Faker.seed(hash(patient\_id))}), pas un tirage aléatoire à chaque exécution — sinon un même utilisateur changerait de nom à chaque ré-exécution du DAG, ce qui casse la logique d'idempotence par ailleurs garantie par les \texttt{UNIQUE(source, external\_id)}.
+  \item \textbf{Génération de données manquantes, sans casser l'idempotence} — les datasets sources n'ont pas de champ nom (\texttt{first\_name}/\texttt{last\_name}, \texttt{NOT NULL} en base). Convention retenue : \texttt{Faker}~\citep{faker} avec une seed déterministe par ligne source (\texttt{Faker.seed(hash(patient\_id))}), pas un tirage aléatoire à chaque exécution — sinon un même utilisateur changerait de nom à chaque ré-exécution du DAG, ce qui casse la logique d'idempotence par ailleurs garantie par les \texttt{UNIQUE(source, external\_id)}.
 \end{itemize}
 
 % =============================================================================
@@ -326,7 +326,7 @@ Le pipeline suit un découpage classique en trois étapes, une responsabilité p
 
 \texttt{extract} et \texttt{load} exposent chacun une fonction d'entrée (\texttt{run()}, \texttt{load\_data()}) plutôt que d'exécuter leur logique au chargement du module — nécessaire pour un usage sûr depuis Airflow, qui importe périodiquement les fichiers DAG pour les parser sans vouloir déclencher un téléchargement ou une connexion base à chaque fois.
 
-L'orchestration (Sprint 3) est un DAG Airflow unique, \texttt{healthai\_etl\_pipeline} (\texttt{extract} $\rightarrow$ \texttt{transform\_and\_load} $\rightarrow$ \texttt{quality\_check}), plutôt qu'un DAG par source comme envisagé initialement : le volume et le nombre de sources de ce projet ne justifient pas la complexité d'une orchestration plus fine. \texttt{transform} et \texttt{load} sont une seule tâche parce qu'ils s'exécutent déjà dans le même processus côté code, sans artefact intermédiaire sur disque — les séparer aurait forcé à faire transiter des DataFrames pandas par XCom, déconseillé par la documentation Airflow au-delà de très petits volumes. \texttt{quality\_check} exécute des règles réelles (tables vides, valeurs plausibles mais suspectes, complétude) et journalise dans \texttt{data\_quality\_log} — jusqu'ici rien n'écrivait de vraies anomalies dans cette table en dehors du seed de démonstration.
+L'orchestration (Sprint 3) est un DAG Airflow~\citep{airflow} unique, \texttt{healthai\_etl\_pipeline} (\texttt{extract} $\rightarrow$ \texttt{transform\_and\_load} $\rightarrow$ \texttt{quality\_check}), plutôt qu'un DAG par source comme envisagé initialement : le volume et le nombre de sources de ce projet ne justifient pas la complexité d'une orchestration plus fine. \texttt{transform} et \texttt{load} sont une seule tâche parce qu'ils s'exécutent déjà dans le même processus côté code, sans artefact intermédiaire sur disque — les séparer aurait forcé à faire transiter des DataFrames pandas par XCom, déconseillé par la documentation Airflow au-delà de très petits volumes. \texttt{quality\_check} exécute des règles réelles (tables vides, valeurs plausibles mais suspectes, complétude) et journalise dans \texttt{data\_quality\_log} — jusqu'ici rien n'écrivait de vraies anomalies dans cette table en dehors du seed de démonstration.
 
 \paragraph{Isolation de dépendances.} Airflow 2.10.5 exige \texttt{SQLAlchemy<2.0} en interne, incompatible avec le \texttt{2.0.51} utilisé partout ailleurs dans le projet (installer les deux dans le même environnement Python casse le webserver/scheduler — confirmé par les avertissements \texttt{pip} avant correction). Les dépendances ETL sont donc installées dans un venv dédié à l'intérieur de l'image Airflow (\texttt{/opt/etl-venv}), et chaque tâche du DAG est un \texttt{BashOperator} qui invoque ce venv en sous-processus plutôt qu'un \texttt{PythonOperator} qui importerait \texttt{etl/} dans le process Airflow lui-même.
 
@@ -369,11 +369,11 @@ L'orchestration (Sprint 3) est un DAG Airflow unique, \texttt{healthai\_etl\_pip
 \toprule
 \textbf{Source} & \textbf{Alimente} & \textbf{Valeur \texttt{source}} \\
 \midrule
-Kaggle — Daily Food and Nutrition & \texttt{food\_items} & \texttt{kaggle\_\allowbreak daily\_\allowbreak food\_\allowbreak nutrition} \\
-Kaggle — Diet Recommendations & \texttt{medical\_profiles}, \texttt{dietary\_preferences} & (pas de \texttt{source}) \\
-Kaggle — Gym Members Exercise & \texttt{users}, \texttt{biometric\_measurements}, \texttt{workout\_sessions} & \texttt{kaggle\_\allowbreak gym\_\allowbreak members} \\
-Kaggle — Fitness Tracker & \texttt{users}, \texttt{biometric\_measurements}, \texttt{workout\_sessions} & \texttt{kaggle\_\allowbreak gym\_\allowbreak members} \\
-API \texttt{oss.exercisedb.dev} & \texttt{exercises} & \texttt{exercisedb} \\
+Kaggle — Daily Food and Nutrition~\citep{kaggle_nutrition} & \texttt{food\_items} & \texttt{kaggle\_\allowbreak daily\_\allowbreak food\_\allowbreak nutrition} \\
+Kaggle — Diet Recommendations~\citep{kaggle_diet} & \texttt{medical\_profiles}, \texttt{dietary\_preferences} & (pas de \texttt{source}) \\
+Kaggle — Gym Members Exercise~\citep{kaggle_gym} & \texttt{users}, \texttt{biometric\_measurements}, \texttt{workout\_sessions} & \texttt{kaggle\_\allowbreak gym\_\allowbreak members} \\
+Kaggle — Fitness Tracker~\citep{kaggle_fitness} & \texttt{users}, \texttt{biometric\_measurements}, \texttt{workout\_sessions} & \texttt{kaggle\_\allowbreak gym\_\allowbreak members} \\
+API \texttt{oss.exercisedb.dev}~\citep{exercisedb} & \texttt{exercises} & \texttt{exercisedb} \\
 \bottomrule
 \end{tabularx}
 \caption{Correspondance source $\rightarrow$ table(s) alimentée(s). La colonne \texttt{source} est la clé de traçabilité et, combinée à \texttt{external\_id}, la clé d'upsert idempotent pour \texttt{food\_items}/\texttt{exercises} (cf. \S3.2).}
@@ -391,11 +391,11 @@ Point de vigilance transverse, documenté dans \texttt{docs/plan\_de\_developpem
 
 \subsection{Structure}
 
-FastAPI (\texttt{api/main.py}), toutes les routes préfixées \texttt{/api/v1}. Structure en couches, une responsabilité par dossier :
+FastAPI~\citep{fastapi} (\texttt{api/main.py}), toutes les routes préfixées \texttt{/api/v1}. Structure en couches, une responsabilité par dossier :
 
 \begin{itemize}[leftmargin=1.4em]
-  \item \texttt{routers/} — la couche HTTP : un routeur par ressource, déclare les endpoints, valide les entrées via les schémas Pydantic, délègue à \texttt{crud/}.
-  \item \texttt{crud/} — accès base de données (requêtes SQLAlchemy), indépendant de FastAPI, ce qui permet de le tester sans monter d'application HTTP.
+  \item \texttt{routers/} — la couche HTTP : un routeur par ressource, déclare les endpoints, valide les entrées via les schémas Pydantic~\citep{pydantic}, délègue à \texttt{crud/}.
+  \item \texttt{crud/} — accès base de données (requêtes SQLAlchemy~\citep{sqlalchemy}), indépendant de FastAPI, ce qui permet de le tester sans monter d'application HTTP.
   \item \texttt{models/} — les entités SQLAlchemy (ORM), une classe par table.
   \item \texttt{schemas/} — les modèles Pydantic de requête/réponse (\texttt{...Create}, \texttt{...Read}, \texttt{...Update}), séparés des \texttt{models/} pour ne jamais exposer directement une colonne sensible (ex. \texttt{hashed\_password}) par accident.
 \end{itemize}
@@ -470,7 +470,7 @@ Testé par 26 tests (\texttt{tests/admin\_interface/}) : logique pure (formatage
 
 \subsection{Accessibilité RGAA}
 
-Un audit automatisé (\texttt{axe-core}, navigateur headless) a été mené sur l'interface plutôt qu'une simple relecture visuelle, pour objectiver le niveau de conformité RGAA/WCAG AA réellement atteint. Résultat, deux catégories distinctes :
+Un audit automatisé (\texttt{axe-core}~\citep{axecore}, navigateur headless) a été mené sur l'interface plutôt qu'une simple relecture visuelle, pour objectiver le niveau de conformité RGAA~\citep{rgaa}/WCAG AA réellement atteint. Résultat, deux catégories distinctes :
 
 \textbf{Corrigé, propre au code applicatif} —
 \begin{itemize}[leftmargin=1.4em]
@@ -482,7 +482,7 @@ Un audit automatisé (\texttt{axe-core}, navigateur headless) a été mené sur 
 
 \subsection{Dashboard Metabase}
 
-Instance self-hosted (\texttt{docker compose}, cf. \S7), connectée en lecture à PostgreSQL. Au-delà des 14 tables du schéma, plusieurs vues SQL (\texttt{vw\_biometric\_latest\_per\_user}, \texttt{vw\_nutrition\_calories\_by\_category}, \texttt{vw\_workout\_sessions\_weekly}...) sont exposées pour servir de base à des KPI (cf. figure~\ref{fig:metabase-db}), en complément de l'interface admin — Metabase pour la vue d'ensemble/tendances, l'interface admin pour l'action (résolution au cas par cas des anomalies, figure~\ref{fig:metabase-dql}).
+Instance self-hosted de Metabase~\citep{metabase} (\texttt{docker compose}, cf. \S7), connectée en lecture à PostgreSQL. Au-delà des 14 tables du schéma, plusieurs vues SQL (\texttt{vw\_biometric\_latest\_per\_user}, \texttt{vw\_nutrition\_calories\_by\_category}, \texttt{vw\_workout\_sessions\_weekly}...) sont exposées pour servir de base à des KPI (cf. figure~\ref{fig:metabase-db}), en complément de l'interface admin — Metabase pour la vue d'ensemble/tendances, l'interface admin pour l'action (résolution au cas par cas des anomalies, figure~\ref{fig:metabase-dql}).
 
 \begin{figure}[H]
 \centering
@@ -505,20 +505,19 @@ Limitation assumée, propre au plan gratuit self-hosted : la personnalisation vi
 \label{sec:docker}
 % =============================================================================
 
-Objectif Sprint 6 : \texttt{docker compose up} $\rightarrow$ environnement fonctionnel en moins de 30 minutes, une seule commande. Sept services (\texttt{docker-compose.yml}) :
+Objectif Sprint 6 : \texttt{docker compose up} $\rightarrow$ environnement fonctionnel en moins de 30 minutes, une seule commande. Huit services (\texttt{docker-compose.yml}) :
 
 \begin{itemize}[leftmargin=1.4em]
   \item \textbf{postgres} (image officielle 16) — healthcheck \texttt{pg\_isready}, condition de démarrage pour les services suivants. Au tout premier démarrage (volume vierge), \texttt{database/init/*.sql} crée aussi les bases \texttt{metabase} et \texttt{airflow}, séparées de \texttt{healthai\_coach}.
-  \item \textbf{db-init} — conteneur à usage unique (\texttt{service\_completed\_successfully}) : applique les migrations Alembic puis peuple la base via \texttt{database/seed/seed\_data.py} (données fictives, dev/démo).
+  \item \textbf{db-init} — conteneur à usage unique (\texttt{service\_completed\_successfully}) : applique les migrations Alembic~\citep{alembic} puis peuple la base via \texttt{database/seed/seed\_data.py} (données fictives, dev/démo).
+  \item \textbf{api} — démarre une fois \texttt{db-init} terminé avec succès, expose le port 8000 (\texttt{Dockerfile} fourni par l'équipe API, Rôle B).
   \item \textbf{admin\_interface} — démarre une fois \texttt{db-init} terminé avec succès, expose le port 7860.
   \item \textbf{metabase} — image officielle, même dépendance à \texttt{db-init}, expose le port 3000 ; connexion à PostgreSQL configurée une seule fois manuellement au premier lancement (Metabase n'expose pas d'API de pré-configuration).
   \item \textbf{airflow-init} — conteneur à usage unique : migre la base de métadonnées Airflow et crée le compte admin, via l'entrypoint officiel de l'image (\texttt{\_AIRFLOW\_DB\_UPGRADE}, \texttt{\_AIRFLOW\_WWW\_USER\_CREATE}).
   \item \textbf{airflow-webserver} / \textbf{airflow-scheduler} — démarrent une fois \texttt{airflow-init} terminé, exposent l'UI sur le port 8080. \texttt{LocalExecutor} + base \texttt{airflow} partagée sur le postgres du projet plutôt que le stack \texttt{CeleryExecutor}+Redis complet vu en formation (config commune factorisée via \texttt{x-airflow-common}, même principe que le patron officiel Airflow) : un DAG unique ne justifie pas plusieurs workers, et la machine de démo n'a pas la RAM pour 7 services Airflow en plus du reste de la stack applicative.
 \end{itemize}
 
-\texttt{api} reste en stub commenté dans le compose au moment de la rédaction, en attente du \texttt{Dockerfile} de l'équipe API (Rôle B) — les variables d'environnement sont déjà prévues dans \texttt{.env.example}.
-
-\paragraph{Point de vigilance — \texttt{db-init} ne deviendra pas le vrai pipeline ETL.} \texttt{db-init} exécute \texttt{seed\_data.py}, qui commence par un \texttt{TRUNCATE ... CASCADE} avant repeuplement : adapté au dev local et à la démo, mais incompatible avec le vrai pipeline (\texttt{etl/load}, Sprint 2), conçu pour upserter sans jamais tronquer et tourner de façon récurrente via le DAG Airflow \texttt{healthai\_etl\_pipeline} (Sprint 3). \textbf{Confirmé empiriquement, pas seulement théorique} : en testant le DAG (extraction réelle Kaggle/ExerciseDB, 2851 \texttt{users}, 645 \texttt{food\_items}, 404 \texttt{exercises} chargés), un simple redémarrage d'\texttt{admin\_interface} a redéclenché \texttt{db-init} qui a immédiatement tout effacé pour revenir aux 101/50/4 lignes de démo. Décision toujours non tranchée à date de rédaction, deux options documentées (\texttt{docs/guide\_deploiement.md}) : retirer \texttt{seed\_data.py} de \texttt{db-init} et ne garder que les migrations, ou conditionner son exécution à une variable d'environnement dédiée réservée aux environnements de démo.
+\paragraph{Point de vigilance — \texttt{db-init} ne deviendra pas le vrai pipeline ETL.} \texttt{db-init} exécute \texttt{seed\_data.py}, qui commence par un \texttt{TRUNCATE ... CASCADE} avant repeuplement : adapté au dev local et à la démo, mais incompatible avec le vrai pipeline (\texttt{etl/load}, Sprint 2), conçu pour upserter sans jamais tronquer et tourner de façon récurrente via le DAG Airflow \texttt{healthai\_etl\_pipeline} (Sprint 3). \textbf{Confirmé empiriquement, pas seulement théorique} : en testant le DAG (extraction réelle Kaggle/ExerciseDB, 2851 \texttt{users}, 645 \texttt{food\_items}, 404 \texttt{exercises} chargés), un simple redémarrage d'\texttt{admin\_interface} a redéclenché \texttt{db-init} qui a immédiatement tout effacé pour revenir aux 101/50/4 lignes de démo. \textbf{Résolu} : \texttt{db-init} respecte désormais la variable d'environnement \texttt{SEED\_DEMO\_DATA} (\texttt{.env}, défaut \texttt{true}) — une fois le vrai pipeline ETL en production, \texttt{SEED\_DEMO\_DATA=false} fait que \texttt{db-init} applique uniquement les migrations et les vues KPI, sans jamais tronquer de données réelles (cf. \texttt{docs/guide\_deploiement.md}).
 
 \begin{figure}[H]
 \centering
@@ -583,9 +582,46 @@ GitHub Actions (\texttt{.github/workflows/ci.yml}), déclenché sur \texttt{pull
 \section{Conclusion}
 % =============================================================================
 
-Le backend HealthAI Coach couvre, à date de rédaction, un schéma PostgreSQL de 16 tables avec ses migrations Alembic, une API REST authentifiée (utilisateurs, journaux nutrition/activité, abonnements, routes IA prêtes pour un microservice pas encore déployé), un pipeline ETL complet et orchestré (extraction, transformation, chargement idempotent et contrôle qualité enchaînés par un DAG Airflow testé de bout en bout contre des données réelles), une interface d'administration de la qualité des données auditée RGAA, un dashboard Metabase, et une conteneurisation \texttt{docker compose} (sept services) permettant de démarrer l'ensemble — hors \texttt{api}, en attente de son \texttt{Dockerfile} — en une seule commande.
+Le backend HealthAI Coach couvre, à date de rédaction, un schéma PostgreSQL de 16 tables avec ses migrations Alembic, une API REST authentifiée (utilisateurs, journaux nutrition/activité, abonnements, routes IA prêtes pour un microservice pas encore déployé), un pipeline ETL complet et orchestré (extraction, transformation, chargement idempotent et contrôle qualité enchaînés par un DAG Airflow testé de bout en bout contre des données réelles), une interface d'administration de la qualité des données auditée RGAA, un dashboard Metabase, et une conteneurisation \texttt{docker compose} (sept services) permettant de démarrer l'ensemble en une seule commande.
 
 Le principal facteur limitant a été le temps disponible dans le cadre de cette formation, pas une difficulté technique bloquante : le microservice IA n'est qu'esquissé (stub côté API), l'incompatibilité entre \texttt{db-init} et le vrai pipeline ETL est identifiée et documentée mais pas encore tranchée, et certaines limitations d'accessibilité du composant \texttt{Dataframe} de Gradio ne sont pas corrigibles sans reconstruire le composant lui-même. Le choix a été fait de prioriser la robustesse de ce qui est livré (contraintes en base, tests contre une vraie base de données, CI reproductible, pipeline ETL vérifié en conditions réelles plutôt que supposé fonctionnel) plutôt que de couvrir l'intégralité du périmètre imaginé au démarrage — un compromis assumé plutôt qu'un oubli.
+
+% =============================================================================
+\begin{thebibliography}{99}
+
+\bibitem{kaggle_nutrition} Adil Shamim, \emph{Daily Food and Nutrition Dataset}. Kaggle, 2024. \url{https://www.kaggle.com/datasets/adilshamim8/daily-food-and-nutrition-dataset}
+
+\bibitem{kaggle_diet} Ziya, \emph{Diet Recommendations Dataset}. Kaggle, 2024. \url{https://www.kaggle.com/datasets/ziya07/diet-recommendations-dataset}
+
+\bibitem{kaggle_gym} Vala Khorasani, \emph{Gym Members Exercise Dataset}. Kaggle, 2023. \url{https://www.kaggle.com/datasets/valakhorasani/gym-members-exercise-dataset}
+
+\bibitem{kaggle_fitness} Nadeem Ajeed, \emph{Fitness Tracker Dataset}. Kaggle, 2024. \url{https://www.kaggle.com/datasets/nadeemajeedch/fitness-tracker-dataset}
+
+\bibitem{exercisedb} \emph{ExerciseDB API — documentation}. \url{https://oss.exercisedb.dev}
+
+\bibitem{postgresql} PostgreSQL Global Development Group, \emph{PostgreSQL Documentation}. \url{https://www.postgresql.org/docs/}
+
+\bibitem{alembic} Mike Bayer, \emph{Alembic Documentation}. \url{https://alembic.sqlalchemy.org}
+
+\bibitem{sqlalchemy} Mike Bayer, \emph{SQLAlchemy Documentation}. \url{https://docs.sqlalchemy.org}
+
+\bibitem{airflow} Apache Software Foundation, \emph{Apache Airflow Documentation}. \url{https://airflow.apache.org/docs/}
+
+\bibitem{fastapi} Sebastián Ramírez, \emph{FastAPI Documentation}. \url{https://fastapi.tiangolo.com}
+
+\bibitem{pydantic} Pydantic, \emph{Pydantic Documentation}. \url{https://docs.pydantic.dev}
+
+\bibitem{faker} Faker contributors, \emph{Faker Documentation}. \url{https://faker.readthedocs.io}
+
+\bibitem{gradio} Gradio, \emph{Gradio Documentation}. \url{https://www.gradio.app/docs}
+
+\bibitem{metabase} Metabase, \emph{Metabase Documentation}. \url{https://www.metabase.com/docs/latest/}
+
+\bibitem{axecore} Deque Systems, \emph{axe-core — Accessibility Engine}. \url{https://github.com/dequelabs/axe-core}
+
+\bibitem{rgaa} DINUM, \emph{Référentiel Général d'Amélioration de l'Accessibilité (RGAA) 4.1}. \url{https://accessibilite.numerique.gouv.fr/}
+
+\end{thebibliography}
 
 % =============================================================================
 \appendix
