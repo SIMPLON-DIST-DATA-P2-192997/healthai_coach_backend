@@ -235,3 +235,28 @@ airflow/standalone_admin_password.txt
 # ETL runtime logs
 etl/logs/*
 !etl/logs/.gitkeep
+
+etl/data/*
+
+# Outils de diagnostic locaux ad hoc (ex. audit RGAA via Playwright) —
+# projet Python, aucune dépendance Node.js réelle à la racine : ne pas
+# committer node_modules/ ni un package.json qui laisserait croire le
+# contraire. Ancré à la racine (/) pour ne pas masquer le vrai projet
+# Node.js de livrable/slides/ (Slidev).
+/node_modules/
+/package.json
+/package-lock.json
+rgaa_audit.js
+
+# LaTeX build artifacts (livrable/rapport.tex)
+livrable/*.aux
+livrable/*.log
+livrable/*.out
+livrable/*.toc
+livrable/*.synctex.gz
+
+# Slidev (livrable/slides/) — dépendances et artefacts de build,
+# regénérables via npm install / npm run build|export.
+livrable/slides/node_modules/
+livrable/slides/dist/
+livrable/slides/.slidev/

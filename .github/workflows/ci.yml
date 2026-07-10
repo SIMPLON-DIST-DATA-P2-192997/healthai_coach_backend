@@ -9,6 +9,25 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: healthai
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: healthai_coach_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://healthai:changeme@localhost:5432/healthai_coach_test
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,12 +37,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Squelette Sprint 0 — logique de lint/tests réelle ajoutée
-      # au fil des sprints (ETL, API, data quality)
+      # Squelette Sprint 0 — logique de lint réelle ajoutée au fil des
+      # sprints (ETL, API, data quality)
       - name: Lint (placeholder)
         run: |
           echo "TODO: lint (ruff/flake8)"
 
-      - name: Tests (placeholder)
+      - name: Install dependencies (migrations + tests)
         run: |
-          echo "TODO: pytest"
+          pip install -r database/migrations/requirements.txt
+          pip install -r tests/requirements.txt
+
+      - name: Apply database migrations (Alembic)
+        run: alembic upgrade head
+
+      - name: Run tests
+        run: pytest tests/ -v

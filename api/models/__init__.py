@@ -1,0 +1,16 @@
+from api.models.user import User  # noqa: F401
+from api.models.food_item import FoodItem  # noqa: F401
+from api.models.nutrition_log import NutritionLog  # noqa: F401
+from api.models.exercise import Exercise  # noqa: F401
+from api.models.workout_session import WorkoutSession  # noqa: F401
+from api.models.workout_set import WorkoutSet  # noqa: F401
+from api.models.biometric_measurement import BiometricMeasurement  # noqa: F401
+from api.models.medical_profile import MedicalProfile  # noqa: F401
+from api.models.dietary_preference import DietaryPreference  # noqa: F401
+from api.models.fitness_profile import FitnessProfile  # noqa: F401
+from api.models.diet_recommendation import DietRecommendation  # noqa: F401
+from api.models.data_quality_log import DataQualityLog  # noqa: F401
+from api.models.organization import Organization  # noqa: F401
+from api.models.subscription import Subscription  # noqa: F401
+from api.models.workout_plan import WorkoutPlan  # noqa: F401
+from api.models.nutrition_plan import NutritionPlan  # noqa: F401
