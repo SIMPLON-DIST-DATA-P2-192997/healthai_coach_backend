@@ -277,7 +277,7 @@ layout: section
 
 ---
 
-# Extraction  (E)
+# Extraction (E)
 
 - **ExerciseDB API** : pagination par curseur (`nextCursor`) pour récupérer l'intégralité du catalogue
 - **Rate limiting** : décorateurs `@limits` / `@sleep_and_retry` pour respecter les quotas d'API et éviter les blocages
@@ -297,7 +297,7 @@ layout: section
 
 # Transformation (T)
 
-- **Nettoyage des données** : Concaténation de certains dataframe, modifications des types données
+- **Nettoyage des données** : Concaténation de certains dataframes, modification des types données
 - **Anonymisation** : `Faker` avec `seed=42` déterministe — faux noms/emails cohérents, mais reproductibles d'un run à l'autre (tests, debug)
 - **Normalisation** : `'Male'/'Female'` → `'M'/'F'`, valeurs manquantes → `'other'`, renommage des colonnes
 - **Dérivation de champs** : date de naissance calculée depuis l'âge fourni, `ended_at` des sessions calculé depuis la durée
