@@ -1,0 +1,51 @@
+Food_Item,Category,Calories (kcal),Protein (g),Carbohydrates (g),Fat (g),Fiber (g),Sugars (g),Sodium (mg),Cholesterol (mg),Meal_Type,Water_Intake (ml)
+Scrambled Eggs (2 large),Protein/Dairy,180,12.0,2.0,14.0,0.0,1.0,180,370,Breakfast,250
+Whole Wheat Toast (1 slice),Grain,80,4.0,14.0,1.0,2.0,2.0,140,0,Breakfast,0
+Coffee (black),Beverage,5,0.3,0.0,0.1,0.0,0.0,5,0,Breakfast,0
+Banana,Fruit,105,1.3,27.0,0.4,3.1,14.0,1,0,Breakfast,0
+Grilled Chicken Salad,Meal/Protein,350,30.0,10.0,20.0,5.0,4.0,400,80,Lunch,500
+Apple,Fruit,95,0.5,25.0,0.3,4.4,19.0,2,0,Snack,0
+Salmon (4oz grilled),Protein/Fish,230,25.0,0.0,14.0,0.0,0.0,60,60,Dinner,250
+Quinoa (1 cup cooked),Grain,222,8.0,39.0,3.6,5.0,1.0,13,0,Dinner,0
+Steamed Broccoli (1 cup),Vegetable,55,3.7,11.2,0.6,5.1,2.0,40,0,Dinner,0
+Greek Yogurt (plain 1 cup),Dairy,150,25.0,8.0,3.0,0.0,7.0,85,10,Snack,250
+Oatmeal (1 cup cooked),Grain,160,6.0,28.0,3.0,4.0,1.0,2,0,Breakfast,250
+Blueberries (1/2 cup),Fruit,42,0.5,11.0,0.2,1.8,7.0,1,0,Breakfast,0
+Almonds (1 oz),Nut,164,6.0,6.0,14.0,3.5,1.0,1,0,Snack,0
+Turkey Sandwich (on wheat),Meal/Processed,340,22.0,34.0,12.0,5.0,6.0,850,50,Lunch,500
+Carrot Sticks (1 cup),Vegetable,52,1.2,12.3,0.3,3.6,6.0,88,0,Snack,0
+Spaghetti Bolognese,Meal/Pasta,460,20.0,55.0,18.0,6.0,10.0,700,50,Dinner,250
+Side Salad (light dressing),Vegetable,70,2.0,8.0,4.0,3.0,3.0,150,0,Dinner,0
+Protein Shake (Whey),Supplement,120,24.0,3.0,1.0,1.0,2.0,160,5,Snack,500
+Cereal (Frosted Flakes 1 cup),Grain/Processed,130,2.0,31.0,0.0,1.0,11.0,190,0,Breakfast,0
+Milk (2%, 1 cup),Dairy,122,8.0,12.0,5.0,0.0,12.0,100,20,Breakfast,0
+Lentil Soup (1 can),Meal/Legume,230,15.0,35.0,3.0,12.0,6.0,650,0,Lunch,250
+White Rice (1 cup cooked),Grain,204,4.2,44.5,0.4,0.6,0.1,2,0,Dinner,0
+Tofu Stir-fry,Meal/Vegetarian,400,18.0,30.0,22.0,7.0,9.0,500,0,Dinner,250
+Orange,Fruit,62,1.2,15.4,0.2,3.1,12.0,0,0,Snack,0
+Bagel (plain),Grain,270,11.0,55.0,1.5,2.0,5.0,430,0,Breakfast,250
+Cream Cheese (2 tbsp),Dairy,100,2.0,2.0,10.0,0.0,1.0,90,30,Breakfast,0
+Tuna Salad (1/2 cup),Meal/Fish,190,19.0,2.0,12.0,1.0,1.0,400,30,Lunch,500
+Crackers (5 whole wheat),Grain/Processed,90,2.0,14.0,3.0,2.0,0.0,180,0,Lunch,0
+Beef Steak (6oz sirloin),Protein/Meat,270,42.0,0.0,10.0,0.0,0.0,90,115,Dinner,250
+Baked Potato (medium),Vegetable,160,4.3,36.0,0.2,3.8,1.0,17,0,Dinner,0
+Ice Cream (1/2 cup vanilla),Dairy/Dessert,145,2.5,17.0,7.5,0.5,16.0,55,30,Snack,0
+Pizza (1 slice pepperoni),Meal/Processed,290,12.0,34.0,12.0,2.0,4.0,720,35,Dinner,250
+Avocado Toast (1 slice),Meal/Vegetarian,260,7.0,28.0,15.0,10.0,1.0,350,0,Breakfast,500
+Hard-Boiled Egg (1 large),Protein,78,6.3,0.6,5.3,0.0,0.5,62,187,Snack,0
+Chicken Wrap (with tortilla),Meal/Processed,410,25.0,38.0,17.0,5.0,3.0,780,60,Lunch,250
+Grapes (1 cup),Fruit,104,1.1,27.0,0.2,1.4,23.0,3,0,Snack,0
+Cottage Cheese (1/2 cup),Dairy,90,12.0,5.0,3.0,0.0,4.0,400,10,Snack,0
+Burger (cheeseburger),Meal/Processed,550,30.0,40.0,30.0,3.0,7.0,1100,90,Dinner,500
+French Fries (medium),Vegetable/Processed,340,4.0,44.0,17.0,4.0,0.3,230,0,Dinner,0
+Protein Bar,Supplement/Processed,210,20.0,22.0,7.0,6.0,1.0,180,5,Snack,500
+Black Beans (1/2 cup),Legume,114,7.6,20.4,0.5,7.5,0.3,1,0,Lunch,0
+Salsa (1/4 cup),Vegetable,20,0.8,4.5,0.1,1.0,3.0,250,0,Lunch,0
+Chicken Noodle Soup (1 can),Meal/Processed,150,7.0,18.0,5.0,2.0,2.0,890,15,Lunch,250
+Peanut Butter (2 tbsp),Nut,190,7.0,8.0,16.0,2.0,3.0,140,0,Snack,0
+Celery Sticks (1 cup),Vegetable,14,0.6,3.0,0.2,1.4,1.2,77,0,Snack,0
+Cod (4oz baked),Protein/Fish,95,20.0,0.0,0.8,0.0,0.0,95,55,Dinner,250
+Green Beans (1 cup),Vegetable,31,1.8,7.0,0.2,2.7,3.3,6,0,Dinner,0
+Chocolate Chip Cookie (1 large),Dessert,220,2.5,30.0,11.0,1.5,19.0,160,20,Snack,0
+Tea (Green, 1 cup),Beverage,2,0.5,0.0,0.0,0.0,0.0,2,0,Breakfast,250
+Shrimp (3oz steamed),Protein/Fish,84,20.0,0.2,0.2,0.0,0.0,100,161,Dinner,250

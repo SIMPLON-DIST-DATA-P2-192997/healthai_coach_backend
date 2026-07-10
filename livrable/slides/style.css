@@ -1,0 +1,4 @@
+/* Masquer le panneau de navigation Slidev (Goto / autocomplete) en haut à droite */
+#slidev-goto-dialog {
+  display: none !important;
+}

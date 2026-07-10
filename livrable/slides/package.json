@@ -1,0 +1,21 @@
+{
+  "name": "slides",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "slidev healthai_coach.md --open",
+    "build": "slidev build healthai_coach.md",
+    "export": "slidev export healthai_coach.md"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@slidev/cli": "^52.16.0",
+    "@slidev/theme-seriph": "^0.25.0"
+  },
+  "devDependencies": {
+    "playwright-chromium": "^1.61.1"
+  }
+}
