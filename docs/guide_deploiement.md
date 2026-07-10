@@ -35,11 +35,14 @@ Le vrai pipeline (`etl/load/postgres_loader.py`, Sprint 2) est conçu différemm
 
 **Confirmé empiriquement, pas juste théorique** : en testant le DAG Airflow (extraction Kaggle/ExerciseDB réelle → 2851 users, 645 food_items, 404 exercises chargés), un simple `docker compose up admin_interface` ultérieur a redéclenché `db-init` (dépendance `service_completed_successfully`) qui a **immédiatement tout effacé** pour revenir aux 101/50/4 lignes de démo. Le risque documenté plus bas n'est donc plus une hypothèse — il se produit dès qu'Airflow et `db-init` coexistent tels quels.
 
-**Ne jamais laisser `seed_data.py` dans `db-init` une fois que l'ETL réel alimente la base avec de vraies données** — le `TRUNCATE` effacerait tout à chaque `docker compose up`. Décision à prendre avec le Rôle A avant la mise en production (toujours pas tranchée à date de rédaction) :
-- soit retirer `seed_data.py` de `db-init` et ne garder que les migrations (schéma), en laissant Airflow peupler les données indépendamment ;
-- soit conditionner son exécution à une variable d'environnement dédiée (ex. `SEED_DEMO_DATA=true`), réservée aux environnements de démo/dev qui ne font pas tourner Airflow à côté.
+**Résolu** : `db-init` respecte désormais `SEED_DEMO_DATA` (`.env`, défaut `true`). Une fois le vrai pipeline ETL en production, passer `SEED_DEMO_DATA=false` — `db-init` applique alors uniquement les migrations et les vues KPI, sans jamais toucher aux données :
 
-En attendant : si tu viens de faire tourner le DAG Airflow et que tu veux garder ces données pour une démo, ne relance pas `docker compose up` (ou toute commande qui redémarre `admin_interface`/`metabase`/`airflow-init`, tous dépendants de `db-init`) sans avoir conscience que ça réinitialise tout.
+```bash
+# Dans .env
+SEED_DEMO_DATA=false
+```
+
+Tant que `SEED_DEMO_DATA=true` (démo/dev, valeur par défaut) le comportement reste inchangé : `docker compose up` (ou tout redémarrage d'un service dépendant de `db-init`) réinitialise les données de démo. Si tu viens de faire tourner le DAG Airflow et que tu veux garder ces données réelles pour une démo, soit tu passes `SEED_DEMO_DATA=false` avant de relancer quoi que ce soit, soit tu évites tout simplement de relancer `docker compose up`/`admin_interface`/`metabase`/`airflow-init` d'ici la fin de la démo.
 
 ## Accès aux services
 
@@ -126,7 +129,14 @@ Checklist pour une démo live sans mauvaise surprise. **Lire l'avertissement à 
    ```
 2. **Interface admin** (http://localhost:7860) — montrer le tableau des anomalies de qualité (données de démo `seed_data.py`), filtrer par sévérité, résoudre une anomalie, exporter en CSV/JSON.
 3. **Metabase** (http://localhost:3000) — se connecter si pas déjà fait (section dédiée ci-dessus), montrer le schéma `healthai_coach` et une ou deux vues KPI (`vw_nutrition_meal_type_breakdown`, `vw_biometric_trend`...).
-4. **API** — déjà démarrée par `docker compose up` (service `api`). Ouvrir http://localhost:8000/docs — Swagger UI, montrer l'authentification (`POST /auth/login`), un endpoint self-service (`GET /users/me`), et si pertinent le gating premium sur `/ai/*` (403 en `free`, 201 après `POST /subscriptions`).
+4. **API** — déjà démarrée par `docker compose up` (service `api`). Ouvrir http://localhost:8000/docs — Swagger UI. Parcours d'exemple (~2 min) :
+   1. `POST /auth/register` → *Try it out* → renseigner `email`/`password`/`first_name`/`last_name` → *Execute* (201).
+   2. `POST /auth/login` → mêmes identifiants, format `x-www-form-urlencoded` (`username` = l'email) → *Execute* → copier `access_token` dans la réponse.
+   3. Bouton **Authorize** (cadenas, en haut de la page) → coller le token → *Authorize* → *Close*. Tous les endpoints protégés passent au cadenas fermé.
+   4. `GET /users/me` → *Try it out* → *Execute* → 200, le profil du compte qu'on vient de créer.
+   5. `POST /ai/workout-plans` avec un `goal` → *Execute* → **403** (`free` par défaut à l'inscription).
+   6. `POST /subscriptions` avec `{"tier": "premium"}` → *Execute* → 201.
+   7. Rejouer `POST /ai/workout-plans` → **201** cette fois — le gating premium en direct, avant/après upgrade.
 5. **Airflow** (http://localhost:8080, `airflow`/`airflow`) — montrer le DAG `healthai_etl_pipeline`, le déclencher (bouton Play), suivre l'exécution des 3 tâches en direct (Graph view), puis retourner sur l'interface admin/Metabase pour montrer les **vraies données ETL** venant de remplacer les données de démo (ex. `SELECT COUNT(*) FROM users` passe de 101 à plusieurs milliers).
 
    **⚠️ Piège à éviter pendant la démo** : une fois le DAG déclenché avec succès, **ne plus relancer `docker compose up` ni redémarrer `admin_interface`/`metabase`** — cela redéclenche `db-init`, qui `TRUNCATE` tout et revient aux données de démo (confirmé empiriquement, cf. section "Point de vigilance" plus haut, et le rapport section Bilan). Si la démo doit repartir de zéro, c'est le seul moment où le relancer sans risque.
